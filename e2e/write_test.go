@@ -120,3 +120,59 @@ func TestStarredEntryLeading(t *testing.T) {
 		t.Errorf("expected a '## [' heading line to contain '*' (starred entry), got:\n%s", content)
 	}
 }
+
+func TestWriteDatePrefix(t *testing.T) {
+	env := newTestEnv(t)
+	yesterday := time.Now().AddDate(0, 0, -1)
+
+	_, stderr := run(t, env, "yesterday: Prefixed entry text.")
+
+	if !strings.Contains(stderr, "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", stderr)
+	}
+	if !dayFileExists(t, env.journalDir, yesterday) {
+		t.Fatal("expected day file for yesterday")
+	}
+	content := dayFileContent(t, env.journalDir, yesterday)
+	if !strings.Contains(content, "Prefixed entry text.") {
+		t.Errorf("expected entry body in yesterday's day file, got:\n%s", content)
+	}
+	today := time.Now()
+	if dayFileExists(t, env.journalDir, today) {
+		t.Error("entry should be in yesterday's file, not today's")
+	}
+}
+
+func TestWriteDatePrefixExplicit(t *testing.T) {
+	env := newTestEnv(t)
+	target := time.Date(2025, 1, 15, 0, 0, 0, 0, time.Local)
+
+	_, stderr := run(t, env, "2025-01-15: Historical entry.")
+
+	if !strings.Contains(stderr, "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", stderr)
+	}
+	if !dayFileExists(t, env.journalDir, target) {
+		t.Fatal("expected day file for 2025-01-15")
+	}
+	content := dayFileContent(t, env.journalDir, target)
+	if !strings.Contains(content, "Historical entry.") {
+		t.Errorf("expected entry body in 2025-01-15 day file, got:\n%s", content)
+	}
+}
+
+func TestWriteNoDatePrefix(t *testing.T) {
+	// "foo: bar" where "foo" is not a parseable date should be treated as plain body text.
+	env := newTestEnv(t)
+	today := time.Now()
+
+	_, stderr := run(t, env, "foo: bar")
+
+	if !strings.Contains(stderr, "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", stderr)
+	}
+	content := dayFileContent(t, env.journalDir, today)
+	if !strings.Contains(content, "foo: bar") {
+		t.Errorf("expected full 'foo: bar' body in today's day file, got:\n%s", content)
+	}
+}
