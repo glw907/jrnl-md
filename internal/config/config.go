@@ -43,8 +43,11 @@ type ColorConfig struct {
 }
 
 type JournalConfig struct {
-	Path    string `toml:"path"`
-	Encrypt *bool  `toml:"encrypt,omitempty"`
+	Path       string `toml:"path"`
+	Encrypt    *bool  `toml:"encrypt,omitempty"`
+	Editor     string `toml:"editor,omitempty"`
+	Template   string `toml:"template,omitempty"`
+	TagSymbols string `toml:"tag_symbols,omitempty"`
 }
 
 func Default() Config {
@@ -72,6 +75,22 @@ func Default() Config {
 		},
 		Journals: map[string]JournalConfig{},
 	}
+}
+
+// ResolvedJournalConfig returns a copy of global with journal-specific overrides applied.
+// Non-empty journal fields take precedence over global values.
+func ResolvedJournalConfig(global Config, j JournalConfig) Config {
+	result := global
+	if j.Editor != "" {
+		result.General.Editor = j.Editor
+	}
+	if j.Template != "" {
+		result.General.Template = j.Template
+	}
+	if j.TagSymbols != "" {
+		result.Format.TagSymbols = j.TagSymbols
+	}
+	return result
 }
 
 func Load(path string) (Config, error) {

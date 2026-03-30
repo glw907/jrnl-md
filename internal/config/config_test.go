@@ -107,3 +107,59 @@ func TestDefaultPath(t *testing.T) {
 		t.Errorf("expected config.toml, got %q", filepath.Base(path))
 	}
 }
+
+func TestResolvedJournalConfig(t *testing.T) {
+	global := Default()
+	global.General.Editor = "nano"
+	global.General.Template = ""
+	global.Format.TagSymbols = "@"
+
+	t.Run("override all three fields", func(t *testing.T) {
+		j := JournalConfig{
+			Path:       "/tmp/j",
+			Editor:     "vim",
+			Template:   "/tmp/template.md",
+			TagSymbols: "#",
+		}
+		resolved := ResolvedJournalConfig(global, j)
+		if resolved.General.Editor != "vim" {
+			t.Errorf("expected editor vim, got %q", resolved.General.Editor)
+		}
+		if resolved.General.Template != "/tmp/template.md" {
+			t.Errorf("expected template /tmp/template.md, got %q", resolved.General.Template)
+		}
+		if resolved.Format.TagSymbols != "#" {
+			t.Errorf("expected tag_symbols #, got %q", resolved.Format.TagSymbols)
+		}
+	})
+
+	t.Run("override none — global preserved", func(t *testing.T) {
+		j := JournalConfig{Path: "/tmp/j"}
+		resolved := ResolvedJournalConfig(global, j)
+		if resolved.General.Editor != "nano" {
+			t.Errorf("expected editor nano, got %q", resolved.General.Editor)
+		}
+		if resolved.Format.TagSymbols != "@" {
+			t.Errorf("expected tag_symbols @, got %q", resolved.Format.TagSymbols)
+		}
+	})
+
+	t.Run("override editor only", func(t *testing.T) {
+		j := JournalConfig{Path: "/tmp/j", Editor: "hx"}
+		resolved := ResolvedJournalConfig(global, j)
+		if resolved.General.Editor != "hx" {
+			t.Errorf("expected editor hx, got %q", resolved.General.Editor)
+		}
+		if resolved.Format.TagSymbols != "@" {
+			t.Errorf("tag_symbols should not change, got %q", resolved.Format.TagSymbols)
+		}
+	})
+
+	t.Run("global is not mutated", func(t *testing.T) {
+		j := JournalConfig{Path: "/tmp/j", Editor: "vim", TagSymbols: "#"}
+		_ = ResolvedJournalConfig(global, j)
+		if global.General.Editor != "nano" {
+			t.Errorf("global should not be mutated, editor is now %q", global.General.Editor)
+		}
+	})
+}
