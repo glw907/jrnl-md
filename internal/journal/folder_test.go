@@ -380,6 +380,71 @@ func TestEncryptedWrongPassphrase(t *testing.T) {
 	}
 }
 
+func TestLoadDay(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nToday's entry.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	// Also write another day that LoadDay should NOT load.
+	content2 := "# 2026-03-28 Saturday\n\n## [10:00 AM]\n\nYesterday.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 28, 0, 0, 0, 0, time.Local), content2, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.LoadDay(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local)); err != nil {
+		t.Fatalf("LoadDay failed: %v", err)
+	}
+
+	entries := fj.AllEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Body != "Today's entry." {
+		t.Errorf("body = %q", entries[0].Body)
+	}
+}
+
+func TestLoadDayMissingFile(t *testing.T) {
+	dir := t.TempDir()
+
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.LoadDay(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local)); err != nil {
+		t.Fatalf("LoadDay on missing file should succeed, got: %v", err)
+	}
+
+	entries := fj.AllEntries()
+	if len(entries) != 0 {
+		t.Fatalf("expected 0 entries, got %d", len(entries))
+	}
+}
+
+func TestLoadDayEncrypted(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := testOpts
+	opts.Encrypt = true
+	opts.Passphrase = "testpass"
+
+	fj := NewFolderJournal(dir, opts)
+	fj.AddEntry(time.Date(2026, 3, 29, 9, 0, 0, 0, time.Local), "Secret.", false)
+	if err := fj.Save(); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	fj2 := NewFolderJournal(dir, opts)
+	if err := fj2.LoadDay(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local)); err != nil {
+		t.Fatalf("LoadDay encrypted failed: %v", err)
+	}
+
+	entries := fj2.AllEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Body != "Secret." {
+		t.Errorf("body = %q", entries[0].Body)
+	}
+}
+
 func TestChangeEntryTimesCrossDay(t *testing.T) {
 	dir := t.TempDir()
 
