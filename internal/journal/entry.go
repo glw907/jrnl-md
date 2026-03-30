@@ -18,10 +18,7 @@ type Entry struct {
 
 // Format renders the entry as a markdown section with ## [time] heading and body.
 func (e Entry) Format(timeFmt string) string {
-	heading := fmt.Sprintf("## [%s]", e.Date.Format(timeFmt))
-	if e.Starred {
-		heading += " *"
-	}
+	heading := EntryHeading(e.Date, timeFmt, e.Starred)
 
 	body := strings.TrimRight(e.Body, "\n ")
 	if body != "" {
@@ -83,4 +80,18 @@ func (tp *TagParser) Parse(body string) []string {
 // ParseTags extracts tags from body text using the configured tag symbols.
 func ParseTags(body, tagSymbols string) []string {
 	return NewTagParser(tagSymbols).Parse(body)
+}
+
+// DayHeading returns the markdown day heading for a date.
+func DayHeading(date time.Time, dateFmt string) string {
+	return fmt.Sprintf("# %s %s", date.Format(dateFmt), date.Format("Monday"))
+}
+
+// EntryHeading returns the markdown entry heading for a timestamp.
+func EntryHeading(date time.Time, timeFmt string, starred bool) string {
+	h := fmt.Sprintf("## [%s]", date.Format(timeFmt))
+	if starred {
+		h += " *"
+	}
+	return h
 }

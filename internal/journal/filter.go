@@ -30,9 +30,11 @@ func (f Filter) Apply(entries []Entry) []Entry {
 		tagSet[strings.ToLower(t)] = true
 	}
 
+	containsLower := strings.ToLower(f.Contains)
+
 	var result []Entry
 	for _, e := range entries {
-		if f.matches(e, tagSet) {
+		if f.matches(e, tagSet, containsLower) {
 			result = append(result, e)
 		}
 	}
@@ -52,7 +54,7 @@ func (f Filter) isEmpty() bool {
 		f.Contains == ""
 }
 
-func (f Filter) matches(e Entry, tagSet map[string]bool) bool {
+func (f Filter) matches(e Entry, tagSet map[string]bool, containsLower string) bool {
 	if f.Starred && !e.Starred {
 		return false
 	}
@@ -74,8 +76,8 @@ func (f Filter) matches(e Entry, tagSet map[string]bool) bool {
 			return false
 		}
 	}
-	if f.Contains != "" {
-		if !strings.Contains(strings.ToLower(e.Body), strings.ToLower(f.Contains)) {
+	if containsLower != "" {
+		if !strings.Contains(strings.ToLower(e.Body), containsLower) {
 			return false
 		}
 	}

@@ -8,12 +8,53 @@ import (
 	"time"
 )
 
+func TestPrepareEncryptedNew(t *testing.T) {
+	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
+	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
+	content, lineCount := prepareEncryptedContent("", date, cfg)
+
+	if !strings.HasPrefix(content, "# 2026-03-29 Sunday") {
+		t.Errorf("missing day heading, got: %q", content[:40])
+	}
+	if !strings.Contains(content, "## [02:30 PM]") {
+		t.Errorf("missing entry heading")
+	}
+	if lineCount < 4 {
+		t.Errorf("expected at least 4 lines, got %d", lineCount)
+	}
+}
+
+func TestPrepareEncryptedExisting(t *testing.T) {
+	existing := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nMorning entry.\n"
+	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
+	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
+	content, _ := prepareEncryptedContent(existing, date, cfg)
+
+	if !strings.Contains(content, "Morning entry.") {
+		t.Error("lost existing content")
+	}
+	if !strings.Contains(content, "## [02:30 PM]") {
+		t.Error("missing new entry heading")
+	}
+}
+
+func TestPrepareEncryptedWithTemplate(t *testing.T) {
+	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
+	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM", Template: "## Mood\n"}
+	content, _ := prepareEncryptedContent("", date, cfg)
+
+	if !strings.Contains(content, "## Mood") {
+		t.Error("missing template content")
+	}
+}
+
 func TestPrepareDayFileNew(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "29.md")
 
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
-	lineCount, err := PrepareDayFile(path, date, "2006-01-02", "03:04 PM", "")
+	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
+	lineCount, err := PrepareDayFile(path, date, cfg)
 	if err != nil {
 		t.Fatalf("PrepareDayFile failed: %v", err)
 	}
@@ -46,7 +87,8 @@ func TestPrepareDayFileExisting(t *testing.T) {
 	}
 
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
-	lineCount, err := PrepareDayFile(path, date, "2006-01-02", "03:04 PM", "")
+	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
+	lineCount, err := PrepareDayFile(path, date, cfg)
 	if err != nil {
 		t.Fatalf("PrepareDayFile failed: %v", err)
 	}
@@ -145,7 +187,8 @@ func TestPrepareDayFileWithTemplate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Remove(path)
 
-			_, err := PrepareDayFile(path, date, "2006-01-02", "03:04 PM", tt.template)
+			cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM", Template: tt.template}
+			_, err := PrepareDayFile(path, date, cfg)
 			if err != nil {
 				t.Fatalf("PrepareDayFile() error: %v", err)
 			}

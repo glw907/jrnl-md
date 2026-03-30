@@ -22,7 +22,7 @@ type day struct {
 func (d day) Format(dateFmt, timeFmt string) string {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("# %s %s", d.date.Format(dateFmt), d.date.Format("Monday")))
+	b.WriteString(DayHeading(d.date, dateFmt))
 	b.WriteString("\n")
 
 	for _, e := range d.entries {

@@ -1,6 +1,7 @@
 package journal
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,10 +37,11 @@ type Options struct {
 // FolderJournal manages a journal stored as day files in a YYYY/MM/DD
 // directory hierarchy.
 type FolderJournal struct {
-	path      string
-	opts      Options
-	days      map[dateKey]*day
-	tagParser *TagParser
+	path        string
+	opts        Options
+	days        map[dateKey]*day
+	tagParser   *TagParser
+	loadedPaths []string
 }
 
 func NewFolderJournal(path string, opts Options) *FolderJournal {
@@ -54,15 +56,14 @@ func NewFolderJournal(path string, opts Options) *FolderJournal {
 // Load reads all day files from disk. If the journal directory does not
 // exist, Load succeeds with an empty journal.
 func (fj *FolderJournal) Load() error {
-	if _, err := os.Stat(fj.path); os.IsNotExist(err) {
-		return nil
-	}
-
 	plainExt := "." + fj.opts.FileExt
 	encExt := plainExt + ".age"
 
 	return filepath.WalkDir(fj.path, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
+			if path == fj.path && errors.Is(err, os.ErrNotExist) {
+				return filepath.SkipAll
+			}
 			return err
 		}
 		if d.IsDir() {
@@ -126,10 +127,65 @@ func (fj *FolderJournal) Load() error {
 		}
 
 		key := dateKey{year, time.Month(month), dayNum}
+		fj.loadedPaths = append(fj.loadedPaths, path)
 		fj.days[key] = &parsed
 
 		return nil
 	})
+}
+
+// LoadDay reads and parses only the day file for the given date. If the
+// file does not exist, LoadDay succeeds with no entries for that day.
+func (fj *FolderJournal) LoadDay(date time.Time) error {
+	plainExt := "." + fj.opts.FileExt
+	encExt := plainExt + ".age"
+
+	base := filepath.Join(
+		fj.path,
+		fmt.Sprintf("%04d", date.Year()),
+		fmt.Sprintf("%02d", int(date.Month())),
+		fmt.Sprintf("%02d", date.Day()),
+	)
+
+	var path string
+	var encrypted bool
+
+	if fj.opts.Encrypt {
+		path = base + encExt
+		encrypted = true
+	} else {
+		path = base + plainExt
+	}
+
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	if encrypted {
+		data, err = crypto.Decrypt(data, fj.opts.Passphrase)
+		if err != nil {
+			return fmt.Errorf("decrypting %s: %w", path, err)
+		}
+	}
+
+	parsed, err := parseDay(string(data), fj.opts.DateFmt, fj.opts.TimeFmt)
+	if err != nil {
+		return fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	for i := range parsed.entries {
+		parsed.entries[i].Tags = fj.tagParser.Parse(parsed.entries[i].Body)
+	}
+
+	key := dateKeyFromTime(date)
+	fj.days[key] = &parsed
+	fj.loadedPaths = append(fj.loadedPaths, path)
+
+	return nil
 }
 
 // Save writes all modified day files to disk atomically.
@@ -221,6 +277,16 @@ func (fj *FolderJournal) DayFilePath(date time.Time) string {
 	)
 }
 
+// Encrypted reports whether the journal uses encryption.
+func (fj *FolderJournal) Encrypted() bool { return fj.opts.Encrypt }
+
+// LoadedPaths returns the file paths read by Load or LoadDay.
+func (fj *FolderJournal) LoadedPaths() []string {
+	out := make([]string, len(fj.loadedPaths))
+	copy(out, fj.loadedPaths)
+	return out
+}
+
 // DeleteEntries removes entries matching by timestamp and marks affected
 // days as modified.
 func (fj *FolderJournal) DeleteEntries(entries []Entry) {
@@ -264,7 +330,6 @@ func (fj *FolderJournal) ChangeEntryTimes(entries []Entry, newTime time.Time) {
 
 	newKey := dateKeyFromTime(newTime)
 
-	// Snapshot keys to avoid mutation during iteration.
 	keys := make([]dateKey, 0, len(fj.days))
 	for k := range fj.days {
 		keys = append(keys, k)
@@ -316,24 +381,3 @@ func (fj *FolderJournal) MarkAllModified() {
 	}
 }
 
-// DayFiles returns all day file paths on disk (plain and encrypted).
-func (fj *FolderJournal) DayFiles() ([]string, error) {
-	plainExt := "." + fj.opts.FileExt
-	encExt := plainExt + ".age"
-	var paths []string
-
-	err := filepath.WalkDir(fj.path, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		name := d.Name()
-		if strings.HasSuffix(name, encExt) || strings.HasSuffix(name, plainExt) {
-			paths = append(paths, path)
-		}
-		return nil
-	})
-	return paths, err
-}

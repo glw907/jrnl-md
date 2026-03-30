@@ -91,6 +91,49 @@ func TestEntryFormatShortNoTruncation(t *testing.T) {
 	}
 }
 
+func TestDayHeading(t *testing.T) {
+	date := time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local)
+	got := DayHeading(date, "2006-01-02")
+	want := "# 2026-03-29 Sunday"
+	if got != want {
+		t.Errorf("DayHeading() = %q, want %q", got, want)
+	}
+}
+
+func TestEntryHeading(t *testing.T) {
+	tests := []struct {
+		name    string
+		date    time.Time
+		timeFmt string
+		starred bool
+		want    string
+	}{
+		{
+			name:    "plain",
+			date:    time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local),
+			timeFmt: "03:04 PM",
+			starred: false,
+			want:    "## [02:30 PM]",
+		},
+		{
+			name:    "starred",
+			date:    time.Date(2026, 3, 29, 9, 0, 0, 0, time.Local),
+			timeFmt: "03:04 PM",
+			starred: true,
+			want:    "## [09:00 AM] *",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EntryHeading(tt.date, tt.timeFmt, tt.starred)
+			if got != tt.want {
+				t.Errorf("EntryHeading() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseTags(t *testing.T) {
 	tests := []struct {
 		name       string
