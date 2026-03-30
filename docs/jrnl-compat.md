@@ -1,13 +1,95 @@
 # jrnl Compatibility
 
-> **Note:** This document is a work in progress. It will be completed after all feature-parity passes are done.
+jrnl-md is a markdown-native reimplementation of [jrnl](https://jrnl.sh). This document describes what is compatible, what differs, and what is not implemented.
 
 ## Backend
 
-jrnl supports multiple storage backends: DayOne, encrypted single-file, and folder-of-files. **jrnl-md implements only the folder-based markdown backend.** Journal files are stored as one Markdown file per day at `YYYY/MM/DD.md`.
+jrnl supports multiple storage backends: DayOne, encrypted single-file, and folder-of-files. **jrnl-md implements only the folder-based markdown backend.** There is no `type` config key and no plan to add one.
 
-There is no `type` config key and no plan to add one. If you are migrating from a jrnl DayOne or single-file journal, you will need to export to text first and then import into jrnl-md.
+Journal files are stored as one Markdown file per day at `YYYY/MM/DD.md` within the configured journal directory. If you are migrating from a jrnl DayOne or single-file journal, export to plain text first, then import into jrnl-md with `--import`.
 
-## What jrnl-md Does and Does Not Implement
+## File Format
 
-*(Full compatibility matrix to be documented here after all feature passes are complete.)*
+jrnl stores entries in plain text with one entry per line:
+
+```
+2025-01-15 09:00 Entry body here.
+2025-01-15 14:30 Another entry.
+```
+
+jrnl-md stores entries as Markdown with day-level and entry-level headings:
+
+```markdown
+# 2025-01-15 Wednesday
+
+## [09:00 AM]
+
+Entry body here.
+
+## [02:30 PM]
+
+Another entry.
+```
+
+## Encryption
+
+jrnl encrypts using AES (legacy) or GPG. jrnl-md uses [age](https://age-encryption.org) (scrypt + XChaCha20-Poly1305). Encrypted jrnl journals cannot be read by jrnl-md directly.
+
+## Config File
+
+| | jrnl | jrnl-md |
+|---|---|---|
+| Format | YAML | TOML |
+| Location | `~/.config/jrnl/jrnl.yaml` | `~/.config/jrnl-md/config.toml` |
+| Journal path key | `journals.<name>.journal` | `journals.<name>.path` |
+| Journal type key | `journals.<name>.type` | *(not supported)* |
+
+## Feature Compatibility
+
+### Implemented
+
+| Feature | jrnl | jrnl-md |
+|---|---|---|
+| Write inline entry | `jrnl Entry text` | same |
+| Date-prefixed entry | `jrnl yesterday: text` | same *(Pass 2)* |
+| Last N entries | `--n N` / `-N` | same |
+| Short listing | `--short` / `-s` | same |
+| Starred entries | `--starred` | same |
+| Text search | `--contains text` | same |
+| Date range | `--from`, `--to`, `--on` | same |
+| Tag filter | `jrnl @tag` | same |
+| AND tag filter | `--and` | same |
+| Exclude tag | `--not @tag` | same |
+| Exclude starred | `--not-starred` | same |
+| Exclude tagged | `--not-tagged` | same |
+| List tags | `--tags` | same (frequency-sorted) |
+| Edit today | `--edit` | same |
+| Edit with filters | `--edit @tag` | same *(Pass 3)* |
+| Delete entries | `--delete` | same |
+| Change entry time | `--change-time` | same |
+| Encrypt journal | `--encrypt` / `--decrypt` | same (age, not GPG) |
+| List journals | `--list` | same |
+| Export formats | `--export`/`--format` json/md/txt/xml/yaml | same |
+| Export to file | `--file path` | same |
+| Import | `--import file` | same *(Pass 4)* |
+| Multiple journals | `jrnl work: text` | same |
+| Per-journal config | editor, template, tag_symbols | same *(Pass 5)* |
+| `default_hour` / `default_minute` | config keys | same *(Pass 5)* |
+| Tag highlighting | `highlight`, `colors.tags` | same |
+| Line wrapping | `linewrap` | same |
+| Templates | `template` | same |
+| Shell completion | `--completion` | same |
+
+### Not Implemented
+
+| Feature | Notes |
+|---|---|
+| DayOne backend | Folder-only; no plans to add |
+| Single-file journal | Folder-only; no plans to add |
+| GPG encryption | Uses age instead |
+| `--config-override key=value` | Not implemented |
+| `--debug` flag | Not implemented |
+
+## Config Key Reference
+
+See [docs/config.md](config.md) for the full jrnl-md config reference.
