@@ -78,7 +78,9 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&f.list, "list", false, "List configured journals")
 	cmd.Flags().BoolVar(&f.tags, "tags", false, "List all tags")
 	cmd.Flags().BoolVarP(&f.version, "version", "v", false, "Show version")
-	cmd.Flags().StringVar(&f.configFile, "config", "", "Config file path")
+	cmd.Flags().StringVar(&f.configFile, "config-file", "", "Config file path")
+	cmd.Flags().StringVar(&f.configFile, "config", "", "Config file path (alias for --config-file)")
+	cmd.Flag("config").Hidden = true
 
 	cmd.AddCommand(newCompletionCmd())
 

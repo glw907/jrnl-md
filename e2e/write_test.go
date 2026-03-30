@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"bytes"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -192,5 +194,26 @@ func TestWriteFromStdin(t *testing.T) {
 	content := dayFileContent(t, env.journalDir, today)
 	if !strings.Contains(content, "Stdin entry body.") {
 		t.Errorf("expected stdin body in day file, got:\n%s", content)
+	}
+}
+
+func TestConfigFileFlag(t *testing.T) {
+	env := newTestEnv(t)
+	today := time.Now()
+
+	// Use --config-file explicitly (not the hidden --config alias)
+	cmd := exec.Command(binary, "--config-file", env.configPath, "Config-file flag entry.")
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("binary exited non-zero: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	if !strings.Contains(errBuf.String(), "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", errBuf.String())
+	}
+	if !dayFileExists(t, env.journalDir, today) {
+		t.Fatal("expected day file for today")
 	}
 }
