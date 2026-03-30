@@ -36,10 +36,7 @@ func reencryptJournal(journalPath, journalName string, cfg config.Config, config
 		return fmt.Errorf("loading journal: %w", err)
 	}
 
-	oldFiles, err := fj.DayFiles()
-	if err != nil {
-		return fmt.Errorf("listing day files: %w", err)
-	}
+	oldFiles := fj.LoadedPaths()
 
 	fj.MarkAllModified()
 	fj.SetEncryption(toEncrypt, passphrase)

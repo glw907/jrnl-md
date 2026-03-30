@@ -10,7 +10,7 @@ import (
 	"github.com/glw907/jrnl-md/internal/journal"
 )
 
-func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, encrypted bool, passphrase string) error {
+func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, passphrase string) error {
 	if cfg.General.Editor == "" {
 		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
 	}
@@ -30,13 +30,20 @@ func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, 
 		tmpl = string(data)
 	}
 
-	if encrypted {
-		return editor.LaunchEncrypted(cfg.General.Editor, fj.DayFilePath(now), now,
-			cfg.Format.Date, cfg.Format.Time, passphrase, tmpl)
+	ecfg := editor.Config{
+		Command:    cfg.General.Editor,
+		DateFmt:    cfg.Format.Date,
+		TimeFmt:    cfg.Format.Time,
+		Passphrase: passphrase,
+		Template:   tmpl,
+	}
+
+	if fj.Encrypted() {
+		return editor.LaunchEncrypted(fj.DayFilePath(now), now, ecfg)
 	}
 
 	path := fj.DayFilePath(now)
-	lineCount, err := editor.PrepareDayFile(path, now, cfg.Format.Date, cfg.Format.Time, tmpl)
+	lineCount, err := editor.PrepareDayFile(path, now, ecfg)
 	if err != nil {
 		return fmt.Errorf("preparing day file: %w", err)
 	}

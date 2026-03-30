@@ -37,10 +37,11 @@ type Options struct {
 // FolderJournal manages a journal stored as day files in a YYYY/MM/DD
 // directory hierarchy.
 type FolderJournal struct {
-	path      string
-	opts      Options
-	days      map[dateKey]*day
-	tagParser *TagParser
+	path        string
+	opts        Options
+	days        map[dateKey]*day
+	tagParser   *TagParser
+	loadedPaths []string
 }
 
 func NewFolderJournal(path string, opts Options) *FolderJournal {
@@ -126,6 +127,7 @@ func (fj *FolderJournal) Load() error {
 		}
 
 		key := dateKey{year, time.Month(month), dayNum}
+		fj.loadedPaths = append(fj.loadedPaths, path)
 		fj.days[key] = &parsed
 
 		return nil
@@ -181,6 +183,7 @@ func (fj *FolderJournal) LoadDay(date time.Time) error {
 
 	key := dateKeyFromTime(date)
 	fj.days[key] = &parsed
+	fj.loadedPaths = append(fj.loadedPaths, path)
 
 	return nil
 }
@@ -272,6 +275,16 @@ func (fj *FolderJournal) DayFilePath(date time.Time) string {
 		date.Format("01"),
 		date.Format("02")+"."+ext,
 	)
+}
+
+// Encrypted reports whether the journal uses encryption.
+func (fj *FolderJournal) Encrypted() bool { return fj.opts.Encrypt }
+
+// LoadedPaths returns the file paths read by Load or LoadDay.
+func (fj *FolderJournal) LoadedPaths() []string {
+	out := make([]string, len(fj.loadedPaths))
+	copy(out, fj.loadedPaths)
+	return out
 }
 
 // DeleteEntries removes entries matching by timestamp and marks affected
@@ -368,24 +381,3 @@ func (fj *FolderJournal) MarkAllModified() {
 	}
 }
 
-// DayFiles returns all day file paths on disk (plain and encrypted).
-func (fj *FolderJournal) DayFiles() ([]string, error) {
-	plainExt := "." + fj.opts.FileExt
-	encExt := plainExt + ".age"
-	var paths []string
-
-	err := filepath.WalkDir(fj.path, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		name := d.Name()
-		if strings.HasSuffix(name, encExt) || strings.HasSuffix(name, plainExt) {
-			paths = append(paths, path)
-		}
-		return nil
-	})
-	return paths, err
-}

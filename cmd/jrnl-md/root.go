@@ -152,7 +152,7 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 		if err := fj.LoadDay(now); err != nil {
 			return fmt.Errorf("loading journal: %w", err)
 		}
-		return editEntry(fj, cfg, configPath, encrypted, passphrase)
+		return editEntry(fj, cfg, configPath, passphrase)
 	}
 
 	fj := journal.NewFolderJournal(path, opts)

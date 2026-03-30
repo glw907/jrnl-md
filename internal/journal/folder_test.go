@@ -307,10 +307,12 @@ func TestEncryptDecryptConversion(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	oldFiles, err := fj.DayFiles()
-	if err != nil {
-		t.Fatal(err)
+	// Load so LoadedPaths is populated, then encrypt and remove old plain files.
+	fj = NewFolderJournal(dir, testOpts)
+	if err := fj.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
 	}
+	oldFiles := fj.LoadedPaths()
 
 	fj.MarkAllModified()
 	fj.SetEncryption(true, "pass123")
@@ -340,7 +342,7 @@ func TestEncryptDecryptConversion(t *testing.T) {
 		t.Errorf("unexpected entries after encrypt: %v", entries)
 	}
 
-	encFiles, _ := fj2.DayFiles()
+	encFiles := fj2.LoadedPaths()
 	fj2.MarkAllModified()
 	fj2.SetEncryption(false, "")
 	if err := fj2.Save(); err != nil {
@@ -524,5 +526,72 @@ func TestChangeEntryTimesCrossDay(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "Moving entry.") {
 		t.Error("entry not in new day file")
+	}
+}
+
+func TestEncrypted(t *testing.T) {
+	dir := t.TempDir()
+
+	fj := NewFolderJournal(dir, testOpts)
+	if fj.Encrypted() {
+		t.Error("expected Encrypted() = false for plain journal")
+	}
+
+	encOpts := testOpts
+	encOpts.Encrypt = true
+	encOpts.Passphrase = "test"
+	fj2 := NewFolderJournal(dir, encOpts)
+	if !fj2.Encrypted() {
+		t.Error("expected Encrypted() = true for encrypted journal")
+	}
+}
+
+func TestLoadedPathsAfterLoad(t *testing.T) {
+	dir := t.TempDir()
+
+	content1 := "# 2026-03-28 Saturday\n\n## [09:00 AM]\n\nDay one.\n"
+	content2 := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nDay two.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 28, 0, 0, 0, 0, time.Local), content1, "md")
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content2, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	paths := fj.LoadedPaths()
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 loaded paths, got %d", len(paths))
+	}
+}
+
+func TestLoadedPathsAfterLoadDay(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nToday.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.LoadDay(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local)); err != nil {
+		t.Fatalf("LoadDay failed: %v", err)
+	}
+
+	paths := fj.LoadedPaths()
+	if len(paths) != 1 {
+		t.Fatalf("expected 1 loaded path, got %d", len(paths))
+	}
+}
+
+func TestLoadedPathsMissingDir(t *testing.T) {
+	dir := t.TempDir()
+
+	fj := NewFolderJournal(filepath.Join(dir, "nonexistent"), testOpts)
+	if err := fj.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	paths := fj.LoadedPaths()
+	if len(paths) != 0 {
+		t.Fatalf("expected 0 loaded paths, got %d", len(paths))
 	}
 }
