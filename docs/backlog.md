@@ -4,36 +4,10 @@ Items worth implementing, roughly prioritized. Items explicitly excluded by desi
 
 ---
 
-## `--format` display mode aliases
+~~## `--format` display mode aliases~~
+~~## `--format dates`~~
 
-**Priority: High** — users migrating from jrnl will hit these immediately.
-
-jrnl treats `--format` as a unified flag covering both display modes and structured exports. jrnl-md only handles structured exports (`json`, `md`, `txt`, `xml`, `yaml`). Passing a display mode alias currently returns an error.
-
-| `--format` value | Expected behavior | Current behavior |
-|---|---|---|
-| `pretty` | default display | `unknown export format "pretty"` |
-| `short` | one line per entry (same as `--short`) | `unknown export format "short"` |
-| `tags` | tag frequency list (same as `--tags`) | `unknown export format "tags"` |
-
-**Fix:** Add `pretty`, `short`, `tags` cases to the `switch` in `cmd/jrnl-md/read.go`. `pretty` and `short` route to the existing display logic; `tags` routes to `showTags`.
-
----
-
-## `--format dates`
-
-**Priority: Medium** — no workaround exists; jrnl users expect this.
-
-`jrnl --format dates` lists the dates of matching entries with their entry count:
-
-```
-2025-01-15: 2 entries
-2025-03-01: 1 entry
-```
-
-Not currently implemented. No flag equivalent.
-
-**Fix:** Add a `dates` case to the export switch in `read.go`, with a small helper that groups entries by date and prints counts.
+**Done** — `--format pretty/short/tags/dates` all implemented.
 
 ---
 

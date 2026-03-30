@@ -33,36 +33,47 @@ func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs
 	}
 
 	if f.export != "" {
-		var output string
-		var err error
 		format := strings.ToLower(f.export)
 		switch format {
-		case export.FormatJSON:
-			output, err = export.JSON(entries, cfg)
-		case export.FormatMarkdown, "markdown":
-			output, err = export.Markdown(entries, cfg)
-		case export.FormatText, "text":
-			output, err = export.Text(entries, cfg)
-		case export.FormatXML:
-			output, err = export.XML(entries, cfg)
-		case export.FormatYAML:
-			output, err = export.YAML(entries, cfg)
+		case "pretty":
+			// fall through to default display below
+		case "short":
+			f.short = true
+		case "tags":
+			return showTags(entries)
+		case "dates":
+			return showDates(entries, cfg.Format.Date)
 		default:
-			return fmt.Errorf("unknown export format %q (supported: %s, %s, %s, %s, %s)",
-				f.export, export.FormatJSON, export.FormatMarkdown,
-				export.FormatText, export.FormatXML, export.FormatYAML)
-		}
-		if err != nil {
-			return fmt.Errorf("exporting as %s: %w", format, err)
-		}
-		if f.file != "" {
-			if err := atomicfile.WriteFile(f.file, []byte(output), 0o600); err != nil {
-				return fmt.Errorf("writing export to %s: %w", f.file, err)
+			var output string
+			var err error
+			switch format {
+			case export.FormatJSON:
+				output, err = export.JSON(entries, cfg)
+			case export.FormatMarkdown, "markdown":
+				output, err = export.Markdown(entries, cfg)
+			case export.FormatText, "text":
+				output, err = export.Text(entries, cfg)
+			case export.FormatXML:
+				output, err = export.XML(entries, cfg)
+			case export.FormatYAML:
+				output, err = export.YAML(entries, cfg)
+			default:
+				return fmt.Errorf("unknown export format %q (supported: pretty, short, tags, dates, %s, %s, %s, %s, %s)",
+					f.export, export.FormatJSON, export.FormatMarkdown,
+					export.FormatText, export.FormatXML, export.FormatYAML)
 			}
+			if err != nil {
+				return fmt.Errorf("exporting as %s: %w", format, err)
+			}
+			if f.file != "" {
+				if err := atomicfile.WriteFile(f.file, []byte(output), 0o600); err != nil {
+					return fmt.Errorf("writing export to %s: %w", f.file, err)
+				}
+				return nil
+			}
+			fmt.Print(output)
 			return nil
 		}
-		fmt.Print(output)
-		return nil
 	}
 
 	linewrap := cfg.General.Linewrap
@@ -126,6 +137,27 @@ func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs
 		}
 	}
 
+	return nil
+}
+
+func showDates(entries []journal.Entry, dateFmt string) error {
+	counts := make(map[string]int)
+	var order []string
+	for _, e := range entries {
+		d := e.Date.Format(dateFmt)
+		if counts[d] == 0 {
+			order = append(order, d)
+		}
+		counts[d]++
+	}
+	for _, d := range order {
+		n := counts[d]
+		if n == 1 {
+			fmt.Printf("%s: 1 entry\n", d)
+		} else {
+			fmt.Printf("%s: %d entries\n", d, n)
+		}
+	}
 	return nil
 }
 
