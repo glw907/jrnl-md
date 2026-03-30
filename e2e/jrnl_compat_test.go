@@ -715,7 +715,49 @@ func TestCompat_PerJournalConfig(t *testing.T) {
 }
 
 func TestCompat_Templates(t *testing.T) {
-	t.Skip("pending: template rendering (editor pre-fill) not yet implemented")
+	env := newTestEnv(t)
+
+	// Write a template file with pre-fill content
+	templatePath := filepath.Join(env.dir, "template.md")
+	if err := os.WriteFile(templatePath, []byte("Mood: \nActivity: \n"), 0644); err != nil {
+		t.Fatalf("failed to write template file: %v", err)
+	}
+
+	// Patch [general] to set template path and a no-op editor that leaves the file as-is
+	editorPath := filepath.Join(env.dir, "noop-editor.sh")
+	if err := os.WriteFile(editorPath, []byte("#!/bin/bash\n"), 0755); err != nil {
+		t.Fatalf("failed to write noop editor: %v", err)
+	}
+
+	data, err := os.ReadFile(env.configPath)
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+	patched := strings.Replace(string(data),
+		"editor = \"\"",
+		fmt.Sprintf("editor = %q\ntemplate = %q", editorPath, templatePath),
+		1)
+	if !strings.Contains(patched, templatePath) {
+		t.Fatalf("template patch did not apply")
+	}
+	if err := os.WriteFile(env.configPath, []byte(patched), 0644); err != nil {
+		t.Fatalf("failed to write patched config: %v", err)
+	}
+
+	// Run with no args — opens editor for today's entry
+	run(t, env)
+
+	today := time.Now()
+	if !dayFileExists(t, env.journalDir, today) {
+		t.Fatal("expected day file for today after template-editor run")
+	}
+	content := dayFileContent(t, env.journalDir, today)
+	if !strings.Contains(content, "Mood: ") {
+		t.Errorf("expected template content 'Mood: ' in day file, got:\n%s", content)
+	}
+	if !strings.Contains(content, "Activity: ") {
+		t.Errorf("expected template content 'Activity: ' in day file, got:\n%s", content)
+	}
 }
 
 // --- Display ---
