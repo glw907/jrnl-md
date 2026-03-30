@@ -18,6 +18,10 @@ type flags struct {
 	n          int
 	short      bool
 	starred    bool
+	and        bool
+	not        []string
+	notStarred bool
+	notTagged  bool
 	edit       bool
 	delete     bool
 	encrypt    bool
@@ -51,6 +55,10 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&f.n, "num", "n", 0, "Show last N entries")
 	cmd.Flags().BoolVarP(&f.short, "short", "s", false, "Show short entry list")
 	cmd.Flags().BoolVar(&f.starred, "starred", false, "Show only starred entries")
+	cmd.Flags().BoolVar(&f.and, "and", false, "Require all specified tags (AND logic)")
+	cmd.Flags().StringArrayVar(&f.not, "not", nil, "Exclude entries containing tag")
+	cmd.Flags().BoolVar(&f.notStarred, "not-starred", false, "Exclude starred entries")
+	cmd.Flags().BoolVar(&f.notTagged, "not-tagged", false, "Exclude entries that have any tags")
 	cmd.Flags().BoolVar(&f.edit, "edit", false, "Open entries in editor")
 	cmd.Flags().BoolVar(&f.delete, "delete", false, "Delete entries")
 	cmd.Flags().BoolVar(&f.encrypt, "encrypt", false, "Encrypt the journal")
@@ -186,7 +194,10 @@ func listJournals(cfg config.Config) error {
 }
 
 func hasFilterFlags(f *flags) bool {
-	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt || f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" || f.contains != "" || f.tags || f.export != ""
+	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt ||
+		f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" ||
+		f.contains != "" || f.tags || f.export != "" ||
+		f.notStarred || f.notTagged || len(f.not) > 0
 }
 
 func journalEncrypted(jcfg config.JournalConfig, cfg config.Config) bool {

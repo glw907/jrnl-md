@@ -81,6 +81,10 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	var flt journal.Filter
 	flt.N = f.n
 	flt.Starred = f.starred
+	flt.AndTags = f.and
+	flt.NotTags = f.not
+	flt.NotStarred = f.notStarred
+	flt.NotTagged = f.notTagged
 
 	if len(tagArgs) > 0 {
 		flt.Tags = tagArgs

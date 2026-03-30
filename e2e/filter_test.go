@@ -183,3 +183,77 @@ func TestCombinedFilters(t *testing.T) {
 		t.Errorf("expected stdout NOT to contain 'March first entry', got: %q", stdout)
 	}
 }
+
+func TestAndFlag(t *testing.T) {
+	env := newTestEnv(t)
+	// Entry 1: has @work and @project; Entry 2: has only @work
+	writeDayFile(t, env.journalDir, time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
+		"# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nEntry with both @work and @project tags.\n\n## [10:00 AM]\n\nEntry with only @work tag.\n")
+
+	stdout, stderr := run(t, env, "--and", "@work", "@project", "--num", "99")
+
+	if !strings.Contains(stderr, "1 entries found") {
+		t.Errorf("--and should match only entry with both tags, stderr: %q", stderr)
+	}
+	if !strings.Contains(stdout, "both @work and @project") {
+		t.Errorf("--and should show entry with both tags, stdout: %q", stdout)
+	}
+	if strings.Contains(stdout, "only @work") {
+		t.Errorf("--and should not show entry with only one tag, stdout: %q", stdout)
+	}
+}
+
+func TestNotFlag(t *testing.T) {
+	env := newTestEnv(t)
+	seedFilterJournal(t, env)
+
+	// seedFilterJournal has @work, @project, @personal entries
+	// Excluding @work and @project should leave only @personal
+	stdout, stderr := run(t, env, "--not", "@work", "--not", "@project", "--num", "99")
+
+	if !strings.Contains(stderr, "1 entries found") {
+		t.Errorf("expected 1 entry after --not exclusions, stderr: %q", stderr)
+	}
+	if !strings.Contains(stdout, "personal") {
+		t.Errorf("expected @personal entry in output, stdout: %q", stdout)
+	}
+	if strings.Contains(stdout, "@work") {
+		t.Errorf("--not @work should exclude @work entries, stdout: %q", stdout)
+	}
+}
+
+func TestNotStarredFlag(t *testing.T) {
+	env := newTestEnv(t)
+	writeDayFile(t, env.journalDir, time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
+		"# 2026-03-01 Sunday\n\n## [09:00 AM] *\n\nStarred entry content.\n\n## [10:00 AM]\n\nUnstarred entry content.\n")
+
+	stdout, stderr := run(t, env, "--not-starred", "--num", "99")
+
+	if !strings.Contains(stderr, "1 entries found") {
+		t.Errorf("--not-starred should find 1 entry, stderr: %q", stderr)
+	}
+	if strings.Contains(stdout, "Starred entry") {
+		t.Errorf("--not-starred should exclude starred entries, stdout: %q", stdout)
+	}
+	if !strings.Contains(stdout, "Unstarred entry") {
+		t.Errorf("--not-starred should include unstarred entries, stdout: %q", stdout)
+	}
+}
+
+func TestNotTaggedFlag(t *testing.T) {
+	env := newTestEnv(t)
+	writeDayFile(t, env.journalDir, time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
+		"# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nEntry with @tag.\n\n## [10:00 AM]\n\nEntry without tags.\n")
+
+	stdout, stderr := run(t, env, "--not-tagged", "--num", "99")
+
+	if !strings.Contains(stderr, "1 entries found") {
+		t.Errorf("--not-tagged should find 1 entry, stderr: %q", stderr)
+	}
+	if strings.Contains(stdout, "@tag") {
+		t.Errorf("--not-tagged should exclude tagged entries, stdout: %q", stdout)
+	}
+	if !strings.Contains(stdout, "without tags") {
+		t.Errorf("--not-tagged should include untagged entries, stdout: %q", stdout)
+	}
+}
