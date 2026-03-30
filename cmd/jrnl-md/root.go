@@ -41,6 +41,7 @@ type flags struct {
 	tags       bool
 	version    bool
 	configFile string
+	importFile string
 }
 
 func newRootCmd() *cobra.Command {
@@ -81,6 +82,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().StringVar(&f.configFile, "config-file", "", "Config file path")
 	cmd.Flags().StringVar(&f.configFile, "config", "", "Config file path (alias for --config-file)")
 	cmd.Flag("config").Hidden = true
+	cmd.Flags().StringVar(&f.importFile, "import", "", "Import entries from file (use - for stdin)")
 
 	cmd.AddCommand(newCompletionCmd())
 
@@ -162,6 +164,11 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 	opts := journalOptions(cfg, encrypted, passphrase)
 	now := time.Now()
 
+	if f.importFile != "" {
+		fj := journal.NewFolderJournal(path, opts)
+		return importEntries(fj, f.importFile, cfg.Format.Date, cfg.Format.Time)
+	}
+
 	if len(text) == 0 && !hasFilterFlags(f) && !f.edit && !term.IsTerminal(int(os.Stdin.Fd())) {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -223,7 +230,7 @@ func hasFilterFlags(f *flags) bool {
 	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt ||
 		f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" ||
 		f.contains != "" || f.tags || f.export != "" ||
-		f.notStarred || f.notTagged || len(f.not) > 0
+		f.notStarred || f.notTagged || len(f.not) > 0 || f.importFile != ""
 }
 
 func journalEncrypted(jcfg config.JournalConfig, cfg config.Config) bool {

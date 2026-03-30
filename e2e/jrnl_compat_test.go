@@ -562,7 +562,47 @@ func TestCompat_ExportToFile(t *testing.T) {
 }
 
 func TestCompat_Import(t *testing.T) {
-	t.Skip("pending Pass 4: --import FILE")
+	env := newTestEnv(t)
+
+	importContent := "# 2026-01-10 Saturday\n\n## [09:00 AM]\n\nImported first entry.\n\n# 2026-01-11 Sunday\n\n## [03:00 PM]\n\nImported second entry.\n"
+	importPath := filepath.Join(env.dir, "import.md")
+	if err := os.WriteFile(importPath, []byte(importContent), 0644); err != nil {
+		t.Fatalf("failed to write import file: %v", err)
+	}
+
+	_, stderr := run(t, env, "--import", importPath)
+	if !strings.Contains(stderr, "Imported 2 entries") {
+		t.Errorf("expected 'Imported 2 entries' in stderr, got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "Skipped 0 duplicates") {
+		t.Errorf("expected 'Skipped 0 duplicates' in stderr, got: %q", stderr)
+	}
+
+	day1 := time.Date(2026, 1, 10, 0, 0, 0, 0, time.Local)
+	day2 := time.Date(2026, 1, 11, 0, 0, 0, 0, time.Local)
+	if !dayFileExists(t, env.journalDir, day1) {
+		t.Fatal("expected day file for 2026-01-10 after import")
+	}
+	if !dayFileExists(t, env.journalDir, day2) {
+		t.Fatal("expected day file for 2026-01-11 after import")
+	}
+	content1 := dayFileContent(t, env.journalDir, day1)
+	if !strings.Contains(content1, "Imported first entry.") {
+		t.Errorf("expected 'Imported first entry.' in day1 file, got:\n%s", content1)
+	}
+	content2 := dayFileContent(t, env.journalDir, day2)
+	if !strings.Contains(content2, "Imported second entry.") {
+		t.Errorf("expected 'Imported second entry.' in day2 file, got:\n%s", content2)
+	}
+
+	// Re-import — all entries should be skipped as duplicates
+	_, stderr2 := run(t, env, "--import", importPath)
+	if !strings.Contains(stderr2, "Imported 0 entries") {
+		t.Errorf("expected 'Imported 0 entries' on re-import, got: %q", stderr2)
+	}
+	if !strings.Contains(stderr2, "Skipped 2 duplicates") {
+		t.Errorf("expected 'Skipped 2 duplicates' on re-import, got: %q", stderr2)
+	}
 }
 
 // --- Config ---
