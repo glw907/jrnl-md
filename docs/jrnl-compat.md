@@ -44,6 +44,14 @@ jrnl encrypts using AES (legacy) or GPG. jrnl-md uses [age](https://age-encrypti
 | Journal path key | `journals.<name>.journal` | `journals.<name>.path` |
 | Journal type key | `journals.<name>.type` | *(not supported)* |
 
+## Entry Titles
+
+jrnl treats the first sentence of an entry body (text up to the first `.`, `!`, or `?`) as a distinct **title** field. This title appears in `--short` output and in export formats (e.g. the `title` key in JSON export).
+
+jrnl-md has no title concept. There is no structural distinction between the first sentence and the rest of the body — the entire body is stored and displayed as-is. `--short` output shows the date/time followed by up to 60 characters of body text (truncated with `...`).
+
+If you rely on jrnl's title field in exports or integrations, note that jrnl-md's JSON export has no `title` key.
+
 ## Feature Compatibility
 
 ### Implemented
