@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/glw907/jrnl-md/internal/atomicfile"
 	"github.com/glw907/jrnl-md/internal/config"
 	"github.com/glw907/jrnl-md/internal/display"
 	"github.com/glw907/jrnl-md/internal/export"
@@ -53,6 +54,12 @@ func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs
 		}
 		if err != nil {
 			return fmt.Errorf("exporting as %s: %w", format, err)
+		}
+		if f.file != "" {
+			if err := atomicfile.WriteFile(f.file, []byte(output), 0o600); err != nil {
+				return fmt.Errorf("writing export to %s: %w", f.file, err)
+			}
+			return nil
 		}
 		fmt.Print(output)
 		return nil

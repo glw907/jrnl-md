@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -113,5 +115,35 @@ func TestExportFormats(t *testing.T) {
 				t.Errorf("expected non-empty output for format %q", format)
 			}
 		})
+	}
+}
+
+func TestExportToFile(t *testing.T) {
+	env := newTestEnv(t)
+	seedJournal(t, env)
+
+	outFile := filepath.Join(env.dir, "out.json")
+	run(t, env, "--export", "json", "--file", outFile, "--num", "99")
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("output file not created: %v", err)
+	}
+	if !strings.Contains(string(data), "Morning entry") {
+		t.Errorf("exported file missing entry content, got: %s", data)
+	}
+}
+
+func TestFormatAliasMatchesExport(t *testing.T) {
+	env1 := newTestEnv(t)
+	seedJournal(t, env1)
+	env2 := newTestEnv(t)
+	seedJournal(t, env2)
+
+	out1, _ := run(t, env1, "--export", "json", "--num", "99")
+	out2, _ := run(t, env2, "--format", "json", "--num", "99")
+
+	if out1 != out2 {
+		t.Errorf("--format and --export produced different output:\n--export: %s\n--format: %s", out1, out2)
 	}
 }

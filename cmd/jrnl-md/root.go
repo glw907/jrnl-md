@@ -28,6 +28,8 @@ type flags struct {
 	on         string
 	contains   string
 	export     string
+	format     string
+	file       string
 	list       bool
 	tags       bool
 	version    bool
@@ -60,6 +62,8 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().StringVar(&f.on, "on", "", "Show entries on date")
 	cmd.Flags().StringVar(&f.contains, "contains", "", "Filter entries containing text")
 	cmd.Flags().StringVar(&f.export, "export", "", "Export format (json, md, txt, xml, yaml)")
+	cmd.Flags().StringVar(&f.format, "format", "", "Export format (alias for --export)")
+	cmd.Flags().StringVar(&f.file, "file", "", "Write export output to file instead of stdout")
 	cmd.Flags().BoolVar(&f.list, "list", false, "List configured journals")
 	cmd.Flags().BoolVar(&f.tags, "tags", false, "List all tags")
 	cmd.Flags().BoolVarP(&f.version, "version", "v", false, "Show version")
@@ -105,6 +109,10 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 
 	if f.list {
 		return listJournals(cfg)
+	}
+
+	if f.format != "" && f.export == "" {
+		f.export = f.format
 	}
 
 	journalName, text, tagArgs := parseArgs(args, cfg)
@@ -178,7 +186,7 @@ func listJournals(cfg config.Config) error {
 }
 
 func hasFilterFlags(f *flags) bool {
-	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt || f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" || f.contains != "" || f.tags || f.export != ""
+	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt || f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" || f.contains != "" || f.tags || f.export != "" || f.format != ""
 }
 
 func journalEncrypted(jcfg config.JournalConfig, cfg config.Config) bool {
