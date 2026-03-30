@@ -4,10 +4,13 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
 	"golang.org/x/term"
 )
+
+var tagRegexpCache sync.Map // key: tagSymbols string, value: *regexp.Regexp
 
 // WrapText wraps text to the given column width, preserving newlines
 // between paragraphs.
@@ -96,9 +99,18 @@ func HighlightTags(body, tagSymbols string, colorFn func(a ...any) string) strin
 	if colorFn == nil || tagSymbols == "" {
 		return body
 	}
-	escaped := regexp.QuoteMeta(tagSymbols)
-	re := regexp.MustCompile(`[` + escaped + `]\w+`)
+	re := getTagRegexp(tagSymbols)
 	return re.ReplaceAllStringFunc(body, func(match string) string {
 		return colorFn(match)
 	})
+}
+
+func getTagRegexp(tagSymbols string) *regexp.Regexp {
+	if v, ok := tagRegexpCache.Load(tagSymbols); ok {
+		return v.(*regexp.Regexp)
+	}
+	escaped := regexp.QuoteMeta(tagSymbols)
+	re := regexp.MustCompile(`[` + escaped + `]\w+`)
+	tagRegexpCache.Store(tagSymbols, re)
+	return re
 }
