@@ -48,23 +48,23 @@ func TestTagsEmpty(t *testing.T) {
 
 func TestTagsFrequencySort(t *testing.T) {
 	env := newTestEnv(t)
-	// @common appears 3 times, @medium 2 times, @rare 1 time
+	// @zebra appears 3 times (least alphabetical, most frequent)
+	// @alpha appears 1 time (most alphabetical, least frequent)
+	// This would fail with alphabetical sort but pass with frequency sort
 	writeDayFile(t, env.journalDir, time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
-		"# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nEntry with @common and @rare.\n\n## [10:00 AM]\n\nEntry with @common and @medium.\n\n## [11:00 AM]\n\nEntry with @common only.\n\n## [12:00 PM]\n\nEntry with @medium only.\n")
+		"# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nEntry with @zebra.\n\n## [10:00 AM]\n\nEntry with @zebra and @alpha.\n\n## [11:00 AM]\n\nEntry with @zebra only.\n")
 
 	stdout, _ := run(t, env, "--tags", "--num", "99")
 
-	posCommon := strings.Index(stdout, "@common")
-	posMedium := strings.Index(stdout, "@medium")
-	posRare := strings.Index(stdout, "@rare")
+	posZebra := strings.Index(stdout, "@zebra")
+	posAlpha := strings.Index(stdout, "@alpha")
 
-	if posCommon == -1 || posMedium == -1 || posRare == -1 {
-		t.Fatalf("expected all three tags in output, got: %s", stdout)
+	if posZebra == -1 || posAlpha == -1 {
+		t.Fatalf("expected both tags in output, got: %s", stdout)
 	}
-	if posCommon > posMedium {
-		t.Errorf("@common (3 occurrences) should appear before @medium (2 occurrences)")
-	}
-	if posMedium > posRare {
-		t.Errorf("@medium (2 occurrences) should appear before @rare (1 occurrence)")
+	// @zebra (3 occurrences) must appear before @alpha (1 occurrence)
+	// This fails with alphabetical sort since 'a' < 'z'
+	if posZebra > posAlpha {
+		t.Errorf("@zebra (3 occurrences) should appear before @alpha (1 occurrence), but got:\n%s", stdout)
 	}
 }
