@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,21 @@ func seedCompatJournal(t *testing.T, env testEnv) {
 		"# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nFirst @work entry.\n\n## [02:00 PM] *\n\nStarred afternoon entry.\n")
 	writeDayFile(t, env.journalDir, day2,
 		"# 2026-03-15 Sunday\n\n## [10:00 AM]\n\nMid-month @personal and @life entry.\n")
+}
+
+// runAll runs the binary with --num 99 appended, returning all entries.
+func runAll(t *testing.T, env testEnv, args ...string) (stdout, stderr string) {
+	t.Helper()
+	return run(t, env, append(args, "--num", "99")...)
+}
+
+// assertEntriesFound checks that stderr reports exactly n entries found.
+func assertEntriesFound(t *testing.T, stderr string, n int) {
+	t.Helper()
+	want := fmt.Sprintf("%d entries found", n)
+	if !strings.Contains(stderr, want) {
+		t.Errorf("expected %q in stderr, got: %q", want, stderr)
+	}
 }
 
 // --- Write ---
@@ -44,12 +60,10 @@ func TestCompat_WriteInlineEntry(t *testing.T) {
 	}
 }
 
-// TestCompat_WriteFromStdin: echo "text" | jrnl-md creates an entry from stdin.
 func TestCompat_WriteFromStdin(t *testing.T) {
 	t.Skip("pending Pass 2: stdin entry writing")
 }
 
-// TestCompat_DatePrefixedEntry: jrnl "yesterday: Entry text" records at that date.
 func TestCompat_DatePrefixedEntry(t *testing.T) {
 	t.Skip("pending Pass 2: date-prefixed inline entries")
 }
@@ -63,9 +77,7 @@ func TestCompat_LastNEntries(t *testing.T) {
 
 	stdout, stderr := run(t, env, "--num", "2")
 
-	if !strings.Contains(stderr, "2 entries found") {
-		t.Errorf("expected '2 entries found' in stderr, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 2)
 	if strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected oldest entry NOT in output (only last 2), got: %q", stdout)
 	}
@@ -79,28 +91,22 @@ func TestCompat_ShortListing(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "--short", "--num", "99")
+	stdout, stderr := runAll(t, env, "--short")
 
-	if !strings.Contains(stderr, "3 entries found") {
-		t.Errorf("expected '3 entries found' in stderr, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 3)
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	nonEmpty := 0
-	for _, l := range lines {
-		if strings.TrimSpace(l) != "" {
-			nonEmpty++
-		}
-	}
-	if nonEmpty < 3 {
-		t.Errorf("expected at least 3 non-empty lines for --short with 3 entries, got %d:\n%s", nonEmpty, stdout)
-	}
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
+		nonEmpty++
 		if !strings.Contains(line, "2026-03") {
 			t.Errorf("expected --short line to contain date prefix, got: %q", line)
 		}
+	}
+	if nonEmpty < 3 {
+		t.Errorf("expected at least 3 non-empty lines for --short with 3 entries, got %d:\n%s", nonEmpty, stdout)
 	}
 }
 
@@ -111,11 +117,9 @@ func TestCompat_StarredFilter(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "--starred", "--num", "99")
+	stdout, stderr := runAll(t, env, "--starred")
 
-	if !strings.Contains(stderr, "1 entries found") {
-		t.Errorf("expected '1 entries found' for --starred, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 1)
 	if !strings.Contains(stdout, "Starred afternoon entry") {
 		t.Errorf("expected starred entry in output, got: %q", stdout)
 	}
@@ -129,11 +133,9 @@ func TestCompat_TextSearch(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "--contains", "Starred", "--num", "99")
+	stdout, stderr := runAll(t, env, "--contains", "Starred")
 
-	if !strings.Contains(stderr, "1 entries found") {
-		t.Errorf("expected '1 entries found' for --contains, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 1)
 	if !strings.Contains(stdout, "Starred afternoon entry") {
 		t.Errorf("expected matching entry in output, got: %q", stdout)
 	}
@@ -147,11 +149,9 @@ func TestCompat_DateRangeFrom(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "--from", "2026-03-15", "--num", "99")
+	stdout, stderr := runAll(t, env, "--from", "2026-03-15")
 
-	if !strings.Contains(stderr, "1 entries found") {
-		t.Errorf("expected '1 entries found' for --from 2026-03-15, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 1)
 	if !strings.Contains(stdout, "Mid-month @personal") {
 		t.Errorf("expected mid-month entry in output, got: %q", stdout)
 	}
@@ -165,11 +165,9 @@ func TestCompat_DateRangeTo(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "--to", "2026-03-01", "--num", "99")
+	stdout, stderr := runAll(t, env, "--to", "2026-03-01")
 
-	if !strings.Contains(stderr, "2 entries found") {
-		t.Errorf("expected '2 entries found' for --to 2026-03-01, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 2)
 	if !strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected March 1 entry in output, got: %q", stdout)
 	}
@@ -183,11 +181,9 @@ func TestCompat_DateRangeOn(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "--on", "2026-03-01", "--num", "99")
+	stdout, stderr := runAll(t, env, "--on", "2026-03-01")
 
-	if !strings.Contains(stderr, "2 entries found") {
-		t.Errorf("expected '2 entries found' for --on 2026-03-01, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 2)
 	if !strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected March 1 entry in output, got: %q", stdout)
 	}
@@ -201,11 +197,9 @@ func TestCompat_TagFilter(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, stderr := run(t, env, "@work", "--num", "99")
+	stdout, stderr := runAll(t, env, "@work")
 
-	if !strings.Contains(stderr, "1 entries found") {
-		t.Errorf("expected '1 entries found' for @work, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 1)
 	if !strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected @work entry in output, got: %q", stdout)
 	}
@@ -220,11 +214,9 @@ func TestCompat_AndTagFilter(t *testing.T) {
 	seedCompatJournal(t, env)
 
 	// Only mid-month entry has both @personal and @life
-	stdout, stderr := run(t, env, "--and", "@personal", "@life", "--num", "99")
+	stdout, stderr := runAll(t, env, "--and", "@personal", "@life")
 
-	if !strings.Contains(stderr, "1 entries found") {
-		t.Errorf("expected '1 entries found' for --and @personal @life, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 1)
 	if !strings.Contains(stdout, "Mid-month @personal") {
 		t.Errorf("expected AND-matching entry in output, got: %q", stdout)
 	}
@@ -239,11 +231,9 @@ func TestCompat_ExcludeTag(t *testing.T) {
 	seedCompatJournal(t, env)
 
 	// 3 entries total; 1 has @work → 2 remain
-	stdout, stderr := run(t, env, "--not", "@work", "--num", "99")
+	stdout, stderr := runAll(t, env, "--not", "@work")
 
-	if !strings.Contains(stderr, "2 entries found") {
-		t.Errorf("expected '2 entries found' after --not @work, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 2)
 	if strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected @work entry NOT in output, got: %q", stdout)
 	}
@@ -255,11 +245,9 @@ func TestCompat_ExcludeStarred(t *testing.T) {
 	seedCompatJournal(t, env)
 
 	// 3 entries; 1 starred → 2 unstarred
-	stdout, stderr := run(t, env, "--not-starred", "--num", "99")
+	stdout, stderr := runAll(t, env, "--not-starred")
 
-	if !strings.Contains(stderr, "2 entries found") {
-		t.Errorf("expected '2 entries found' for --not-starred, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 2)
 	if strings.Contains(stdout, "Starred afternoon entry") {
 		t.Errorf("expected starred entry NOT in output, got: %q", stdout)
 	}
@@ -271,11 +259,9 @@ func TestCompat_ExcludeTagged(t *testing.T) {
 	seedCompatJournal(t, env)
 
 	// Only "Starred afternoon entry" has no tags → 1 entry
-	stdout, stderr := run(t, env, "--not-tagged", "--num", "99")
+	stdout, stderr := runAll(t, env, "--not-tagged")
 
-	if !strings.Contains(stderr, "1 entries found") {
-		t.Errorf("expected '1 entries found' for --not-tagged, got: %q", stderr)
-	}
+	assertEntriesFound(t, stderr, 1)
 	if !strings.Contains(stdout, "Starred afternoon entry") {
 		t.Errorf("expected untagged entry in output, got: %q", stdout)
 	}
@@ -289,14 +275,13 @@ func TestCompat_ListTags(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, _ := run(t, env, "--tags", "--num", "99")
+	stdout, _ := runAll(t, env, "--tags")
 
 	for _, tag := range []string{"@work", "@personal", "@life"} {
 		if !strings.Contains(stdout, tag) {
 			t.Errorf("expected %q in --tags output, got: %q", tag, stdout)
 		}
 	}
-	// Each line must be "tag: N" format
 	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
 		if line == "" {
 			continue
@@ -308,6 +293,8 @@ func TestCompat_ListTags(t *testing.T) {
 }
 
 // TestCompat_ListTagsFrequencySorted: tags with higher frequency appear first.
+// Note: TestTagsFrequencySort in tags_test.go covers the same sort logic with a single-file
+// fixture. This test uses a multi-file fixture to confirm frequency sort works across days.
 func TestCompat_ListTagsFrequencySorted(t *testing.T) {
 	env := newTestEnv(t)
 	// @zebra appears 3 times, @alpha appears once — @zebra must come first
@@ -320,7 +307,7 @@ func TestCompat_ListTagsFrequencySorted(t *testing.T) {
 	writeDayFile(t, env.journalDir, day3, "# 2026-03-03 Tuesday\n\n## [09:00 AM]\n\n@zebra entry three.\n")
 	writeDayFile(t, env.journalDir, day4, "# 2026-03-04 Wednesday\n\n## [09:00 AM]\n\n@alpha entry once.\n")
 
-	stdout, _ := run(t, env, "--tags", "--num", "99")
+	stdout, _ := runAll(t, env, "--tags")
 
 	zebraIdx := strings.Index(stdout, "@zebra")
 	alphaIdx := strings.Index(stdout, "@alpha")
@@ -334,12 +321,10 @@ func TestCompat_ListTagsFrequencySorted(t *testing.T) {
 
 // --- Edit ---
 
-// TestCompat_EditNoFilter: jrnl --edit opens all entries (or last N) in a temp file.
 func TestCompat_EditNoFilter(t *testing.T) {
 	t.Skip("pending Pass 3: --edit always opens all/last-N entries via editFiltered")
 }
 
-// TestCompat_EditWithFilter: jrnl --edit @tag opens only matching entries.
 func TestCompat_EditWithFilter(t *testing.T) {
 	t.Skip("pending Pass 3: --edit with filter flags via editFiltered")
 }
@@ -435,7 +420,7 @@ func TestCompat_ExportJSON(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, _ := run(t, env, "--format", "json", "--num", "99")
+	stdout, _ := runAll(t, env, "--format", "json")
 
 	var result struct {
 		Entries []map[string]any `json:"entries"`
@@ -460,7 +445,7 @@ func TestCompat_ExportMarkdown(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, _ := run(t, env, "--format", "md", "--num", "99")
+	stdout, _ := runAll(t, env, "--format", "md")
 
 	if !strings.Contains(stdout, "## ") {
 		t.Errorf("expected markdown entry headings (## ) in --format md output, got: %q", stdout)
@@ -475,7 +460,7 @@ func TestCompat_ExportText(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
-	stdout, _ := run(t, env, "--format", "txt", "--num", "99")
+	stdout, _ := runAll(t, env, "--format", "txt")
 
 	if !strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected entry body in --format txt output, got: %q", stdout)
@@ -491,7 +476,7 @@ func TestCompat_ExportToFile(t *testing.T) {
 	seedCompatJournal(t, env)
 
 	outPath := filepath.Join(env.dir, "export.json")
-	run(t, env, "--format", "json", "--file", outPath, "--num", "99")
+	runAll(t, env, "--format", "json", "--file", outPath)
 
 	data, err := os.ReadFile(outPath)
 	if err != nil {
@@ -502,31 +487,26 @@ func TestCompat_ExportToFile(t *testing.T) {
 	}
 }
 
-// TestCompat_Import: jrnl --import file imports entries.
 func TestCompat_Import(t *testing.T) {
 	t.Skip("pending Pass 4: --import FILE")
 }
 
 // --- Config ---
 
-// TestCompat_ConfigFileFlag: --config-file is the primary flag name (jrnl-compatible).
 func TestCompat_ConfigFileFlag(t *testing.T) {
 	t.Skip("pending Pass 2: --config-file as primary flag (--config kept as hidden alias)")
 }
 
-// TestCompat_DefaultHourMinute: date-only input uses default_hour/default_minute from config.
 func TestCompat_DefaultHourMinute(t *testing.T) {
 	t.Skip("pending Pass 2: default_hour/default_minute applied to date-only date expressions")
 }
 
 // --- Per-journal config ---
 
-// TestCompat_PerJournalConfig: per-journal keys (editor, template, tag_symbols) override global.
 func TestCompat_PerJournalConfig(t *testing.T) {
 	t.Skip("pending Pass 5: per-journal config overrides")
 }
 
-// TestCompat_Templates: template key uses a file as entry template.
 func TestCompat_Templates(t *testing.T) {
 	t.Skip("pending Pass 5: template support")
 }
@@ -538,7 +518,6 @@ func TestCompat_Templates(t *testing.T) {
 // confirms the feature runs without error and produces output — not that it emits ANSI codes.
 func TestCompat_TagHighlighting(t *testing.T) {
 	env := newTestEnv(t)
-	// Rewrite config with highlight=true and a tag color
 	data, err := os.ReadFile(env.configPath)
 	if err != nil {
 		t.Fatal(err)
@@ -553,7 +532,7 @@ func TestCompat_TagHighlighting(t *testing.T) {
 	}
 
 	seedCompatJournal(t, env)
-	stdout, stderr := run(t, env, "--num", "99")
+	stdout, stderr := runAll(t, env)
 
 	if strings.Contains(stderr, "error") || strings.Contains(stderr, "Error") {
 		t.Errorf("unexpected error with highlight=true: %q", stderr)
