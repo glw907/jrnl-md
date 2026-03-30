@@ -7,12 +7,16 @@ import (
 
 // Filter specifies criteria for selecting entries.
 type Filter struct {
-	Tags      []string
-	StartDate *time.Time
-	EndDate   *time.Time
-	Starred   bool
-	Contains  string
-	N         int
+	Tags       []string
+	AndTags    bool // if true, entry must match ALL Tags (default: any)
+	NotTags    []string
+	NotStarred bool
+	NotTagged  bool
+	StartDate  *time.Time
+	EndDate    *time.Time
+	Starred    bool
+	Contains   string
+	N          int
 }
 
 // Apply returns entries matching all filter criteria. If N is set,
@@ -30,11 +34,16 @@ func (f Filter) Apply(entries []Entry) []Entry {
 		tagSet[strings.ToLower(t)] = true
 	}
 
+	notTagSet := make(map[string]bool, len(f.NotTags))
+	for _, t := range f.NotTags {
+		notTagSet[strings.ToLower(t)] = true
+	}
+
 	containsLower := strings.ToLower(f.Contains)
 
 	var result []Entry
 	for _, e := range entries {
-		if f.matches(e, tagSet, containsLower) {
+		if f.matches(e, tagSet, notTagSet, containsLower) {
 			result = append(result, e)
 		}
 	}
@@ -48,14 +57,23 @@ func (f Filter) Apply(entries []Entry) []Entry {
 
 func (f Filter) isEmpty() bool {
 	return len(f.Tags) == 0 &&
+		len(f.NotTags) == 0 &&
+		!f.NotStarred &&
+		!f.NotTagged &&
 		f.StartDate == nil &&
 		f.EndDate == nil &&
 		!f.Starred &&
 		f.Contains == ""
 }
 
-func (f Filter) matches(e Entry, tagSet map[string]bool, containsLower string) bool {
+func (f Filter) matches(e Entry, tagSet, notTagSet map[string]bool, containsLower string) bool {
 	if f.Starred && !e.Starred {
+		return false
+	}
+	if f.NotStarred && e.Starred {
+		return false
+	}
+	if f.NotTagged && len(e.Tags) > 0 {
 		return false
 	}
 	if f.StartDate != nil && e.Date.Before(*f.StartDate) {
@@ -65,15 +83,37 @@ func (f Filter) matches(e Entry, tagSet map[string]bool, containsLower string) b
 		return false
 	}
 	if len(tagSet) > 0 {
-		found := false
-		for _, t := range e.Tags {
-			if tagSet[t] {
-				found = true
-				break
+		if f.AndTags {
+			for tag := range tagSet {
+				found := false
+				for _, et := range e.Tags {
+					if strings.ToLower(et) == tag {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return false
+				}
+			}
+		} else {
+			found := false
+			for _, t := range e.Tags {
+				if tagSet[t] {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
 			}
 		}
-		if !found {
-			return false
+	}
+	for tag := range notTagSet {
+		for _, et := range e.Tags {
+			if strings.ToLower(et) == tag {
+				return false
+			}
 		}
 	}
 	if containsLower != "" {
