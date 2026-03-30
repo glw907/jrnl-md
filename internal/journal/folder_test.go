@@ -595,3 +595,67 @@ func TestLoadedPathsMissingDir(t *testing.T) {
 		t.Fatalf("expected 0 loaded paths, got %d", len(paths))
 	}
 }
+
+func TestReplaceEntries(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nOriginal entry.\n\n## [10:00 AM]\n\nStay unchanged.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	entries := fj.AllEntries()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	// Replace only the first entry (09:00 AM) with a modified version.
+	newEntry := Entry{
+		Date:    entries[0].Date,
+		Body:    "Replaced entry.",
+		Starred: false,
+	}
+	fj.ReplaceEntries([]Entry{entries[0]}, []Entry{newEntry})
+
+	result := fj.AllEntries()
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries after replace, got %d", len(result))
+	}
+
+	bodies := map[string]bool{}
+	for _, e := range result {
+		bodies[e.Body] = true
+	}
+	if !bodies["Replaced entry."] {
+		t.Error("expected 'Replaced entry.' in journal")
+	}
+	if bodies["Original entry."] {
+		t.Error("expected 'Original entry.' to be gone")
+	}
+	if !bodies["Stay unchanged."] {
+		t.Error("expected 'Stay unchanged.' to remain")
+	}
+}
+
+func TestReplaceEntriesDeleteAll(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nDelete me.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	entries := fj.AllEntries()
+	fj.ReplaceEntries(entries, nil)
+
+	result := fj.AllEntries()
+	if len(result) != 0 {
+		t.Fatalf("expected 0 entries after replace with nil, got %d", len(result))
+	}
+}

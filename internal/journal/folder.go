@@ -316,6 +316,16 @@ func (fj *FolderJournal) DeleteEntries(entries []Entry) {
 	}
 }
 
+// ReplaceEntries removes old entries and adds new entries to the journal.
+// Tags on incoming entries are re-parsed by AddEntry using the configured
+// tag symbols; the Tags field on new entries is ignored.
+func (fj *FolderJournal) ReplaceEntries(old []Entry, newEntries []Entry) {
+	fj.DeleteEntries(old)
+	for _, e := range newEntries {
+		fj.AddEntry(e.Date, e.Body, e.Starred)
+	}
+}
+
 // ChangeEntryTimes updates the timestamp of matching entries. If an entry
 // moves to a different calendar day, it is relocated to the target day.
 func (fj *FolderJournal) ChangeEntryTimes(entries []Entry, newTime time.Time) {
