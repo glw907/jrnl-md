@@ -1,0 +1,4 @@
+/jrnl-md
+*.exe
+.DS_Store
+.claude/worktrees/
