@@ -11,14 +11,14 @@ import (
 )
 
 func changeTime(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs []string) error {
-	newTime, err := dateparse.Parse(f.changeTime, 0, 0)
+	newTime, err := dateparse.Parse(f.changeTime, cfg.General.DefaultHour, cfg.General.DefaultMinute)
 	if err != nil {
 		return fmt.Errorf("parsing --change-time date: %w", err)
 	}
 
 	entries := fj.AllEntries()
 
-	flt, err := buildFilter(f, tagArgs)
+	flt, err := buildFilter(f, tagArgs, cfg)
 	if err != nil {
 		return fmt.Errorf("building filter: %w", err)
 	}

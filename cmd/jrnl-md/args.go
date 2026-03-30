@@ -77,7 +77,7 @@ func expandPath(path string) (string, error) {
 	return path, nil
 }
 
-func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
+func buildFilter(f *flags, tagArgs []string, cfg config.Config) (journal.Filter, error) {
 	var flt journal.Filter
 	flt.N = f.n
 	flt.Starred = f.starred
@@ -95,7 +95,7 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	}
 
 	if f.on != "" {
-		start, err := dateparse.Parse(f.on, 0, 0)
+		start, err := dateparse.Parse(f.on, cfg.General.DefaultHour, cfg.General.DefaultMinute)
 		if err != nil {
 			return flt, fmt.Errorf("parsing --on date: %w", err)
 		}
@@ -106,7 +106,7 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	}
 
 	if f.from != "" {
-		start, err := dateparse.Parse(f.from, 0, 0)
+		start, err := dateparse.Parse(f.from, cfg.General.DefaultHour, cfg.General.DefaultMinute)
 		if err != nil {
 			return flt, fmt.Errorf("parsing --from date: %w", err)
 		}
@@ -114,7 +114,7 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	}
 
 	if f.to != "" {
-		end, err := dateparse.ParseInclusive(f.to, 0, 0)
+		end, err := dateparse.ParseInclusive(f.to, cfg.General.DefaultHour, cfg.General.DefaultMinute)
 		if err != nil {
 			return flt, fmt.Errorf("parsing --to date: %w", err)
 		}

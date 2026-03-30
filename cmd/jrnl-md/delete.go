@@ -12,7 +12,7 @@ import (
 func deleteEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs []string) error {
 	entries := fj.AllEntries()
 
-	flt, err := buildFilter(f, tagArgs)
+	flt, err := buildFilter(f, tagArgs, cfg)
 	if err != nil {
 		return fmt.Errorf("building filter: %w", err)
 	}
