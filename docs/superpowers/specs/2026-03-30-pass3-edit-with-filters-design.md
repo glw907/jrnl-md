@@ -8,15 +8,18 @@ type: project
 
 ## Goal
 
-When `--edit` is combined with filter flags (`-n`, `--on`, `--from`/`--to`, `--contains`, `--starred`, tag args), open the matched entries in a temp file for editing. On save-and-exit, parse the edited content back and update the journal files.
+`--edit` always opens entries in a temp file for editing, matching jrnl's behavior exactly:
 
-When `--edit` is used with no filter flags, behavior is unchanged: open today's day file directly.
+- `--edit` with no filters: opens all entries (or last N if `-n` is set) in a temp file.
+- `--edit` with filter flags: opens only the matching entries.
+
+On save-and-exit, parse the edited content back and update the journal files. This replaces the current behavior of opening today's raw day file directly.
 
 ---
 
 ## Current behavior
 
-`root.go` sends to `editEntry(fj, cfg, configPath, passphrase)` when `f.edit` is true or when no args and no filter flags. `editEntry` always opens today's day file.
+`root.go` sends to `editEntry(fj, cfg, configPath, passphrase)` when `f.edit` is true or when no args and no filter flags. `editEntry` always opens today's day file. This does not match jrnl, which opens all/last-N entries regardless of date.
 
 ---
 
@@ -26,11 +29,10 @@ In `root.go` — `runRoot`:
 
 ```
 if f.edit:
-    if hasFilterFlags(f) or len(tagArgs) > 0:
-        → filtered edit path (new)
-    else:
-        → existing editEntry (today's file)
+    → always use editFiltered (load full journal, apply filter — empty filter = all entries)
 ```
+
+The `editEntry` function (today's-file path) is removed. `editFiltered` handles both the filtered and unfiltered cases. With an empty filter and no `-n`, all entries are opened.
 
 The filtered edit path:
 1. `fj.Load()` — load full journal
@@ -161,6 +163,6 @@ The existing `editor.LaunchEncrypted` handles single-file encrypted editing. For
 
 | File | Change |
 |------|--------|
-| `cmd/jrnl-md/root.go` | Route --edit + filters to editFiltered |
-| `cmd/jrnl-md/edit.go` | Add editFiltered function |
+| `cmd/jrnl-md/root.go` | Route all --edit cases to editFiltered; remove editEntry call |
+| `cmd/jrnl-md/edit.go` | Add editFiltered; remove or repurpose editEntry |
 | `internal/journal/folder.go` | FilteredEntries, UpdateEntry, DeleteEntry, SaveDay |

@@ -8,9 +8,11 @@ type: project
 
 ## Goal
 
-Match jrnl behavior for two cases:
+Match jrnl behavior for four cases:
 1. Inline entry with a date prefix: `jrnl yesterday: Entry text` records the entry at that date/time.
 2. Natural-language and date-only inputs respect `default_hour` / `default_minute` from config.
+3. `echo "text" | jrnl-md` creates an entry from stdin (when stdin is not a TTY and no text args are given).
+4. `--config-file` is the primary flag name (matching jrnl); `--config` is kept as a hidden alias.
 
 ---
 
@@ -110,6 +112,55 @@ Add cases:
 
 ---
 
+---
+
+## 3. Stdin entry writing
+
+When `len(text) == 0` and stdin is not a TTY, read from stdin and use it as the entry body.
+
+**`cmd/jrnl-md/root.go`** — in `runRoot`, in the `len(text) > 0` branch, add a stdin check before it:
+
+```go
+if len(text) == 0 && !term.IsTerminal(int(os.Stdin.Fd())) {
+    data, err := io.ReadAll(os.Stdin)
+    if err != nil {
+        return fmt.Errorf("reading stdin: %w", err)
+    }
+    body := strings.TrimSpace(string(data))
+    if body != "" {
+        text = []string{body}
+    }
+}
+```
+
+This runs after the passphrase prompt (which itself requires a TTY) but before the `len(text) > 0` branch, so it feeds naturally into `writeInline`. Imports needed: `"io"`, `"golang.org/x/term"`.
+
+---
+
+## 4. `--config-file` flag
+
+Rename the `--config` flag to `--config-file` to match jrnl. Keep `--config` as a hidden alias for backward compatibility.
+
+**`cmd/jrnl-md/root.go`**
+
+In `flags` struct, rename `configFile string` → keep as-is (internal name unchanged).
+
+In `newRootCmd`, replace:
+
+```go
+cmd.Flags().StringVar(&f.configFile, "config", "", "Config file path")
+```
+
+with:
+
+```go
+cmd.Flags().StringVar(&f.configFile, "config-file", "", "Config file path")
+cmd.Flags().StringVar(&f.configFile, "config", "", "Config file path (alias for --config-file)")
+cmd.Flag("config").Hidden = true
+```
+
+---
+
 ## Files touched
 
 | File | Change |
@@ -118,3 +169,4 @@ Add cases:
 | `cmd/jrnl-md/write.go` | Detect `: ` prefix, parse date, re-load correct day, use entryTime |
 | `cmd/jrnl-md/read.go` | Pass defaultHour/defaultMinute to dateparse.Parse calls |
 | `cmd/jrnl-md/changetime.go` | Pass defaultHour/defaultMinute to dateparse.Parse calls |
+| `cmd/jrnl-md/root.go` | Stdin read before write path; --config-file primary flag |

@@ -43,6 +43,7 @@ jrnl encrypts using AES (legacy) or GPG. jrnl-md uses [age](https://age-encrypti
 | Location | `~/.config/jrnl/jrnl.yaml` | `~/.config/jrnl-md/config.toml` |
 | Journal path key | `journals.<name>.journal` | `journals.<name>.path` |
 | Journal type key | `journals.<name>.type` | *(not supported)* |
+| Config file flag | `--config-file` | `--config-file` (alias: `--config`) *(Pass 2)* |
 
 ## Entry Titles
 
@@ -59,6 +60,7 @@ If you rely on jrnl's title field in exports or integrations, note that jrnl-md'
 | Feature | jrnl | jrnl-md |
 |---|---|---|
 | Write inline entry | `jrnl Entry text` | same |
+| Write from stdin | `echo "text" \| jrnl` | same *(Pass 2)* |
 | Date-prefixed entry | `jrnl yesterday: text` | same *(Pass 2)* |
 | Last N entries | `--n N` / `-N` | same |
 | Short listing | `--short` / `-s` | same |
@@ -71,7 +73,7 @@ If you rely on jrnl's title field in exports or integrations, note that jrnl-md'
 | Exclude starred | `--not-starred` | same |
 | Exclude tagged | `--not-tagged` | same |
 | List tags | `--tags` | same (frequency-sorted) |
-| Edit today | `--edit` | same |
+| Edit (no filter) | `--edit` | opens all/last-N entries *(Pass 3)* |
 | Edit with filters | `--edit @tag` | same *(Pass 3)* |
 | Delete entries | `--delete` | same |
 | Change entry time | `--change-time` | same |
@@ -94,6 +96,7 @@ If you rely on jrnl's title field in exports or integrations, note that jrnl-md'
 |---|---|
 | DayOne backend | Folder-only; no plans to add |
 | Single-file journal | Folder-only; no plans to add |
+| `--export dayone` | By design — requires DayOne backend |
 | GPG encryption | Uses age instead |
 | `--config-override key=value` | Not implemented |
 | `--debug` flag | Not implemented |
