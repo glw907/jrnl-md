@@ -1,9 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/glw907/jrnl-md/internal/config"
+	"github.com/glw907/jrnl-md/internal/dateparse"
+	"github.com/glw907/jrnl-md/internal/journal"
 )
 
 // preprocessArgs converts -N numeric shorthand (e.g. -3) to -n N
@@ -59,4 +64,58 @@ func parseArgs(args []string, cfg config.Config) (journalName string, text []str
 	}
 
 	return "default", args, nil
+}
+
+func expandPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("determining home directory: %w", err)
+		}
+		return home + path[1:], nil
+	}
+	return path, nil
+}
+
+func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
+	var flt journal.Filter
+	flt.N = f.n
+	flt.Starred = f.starred
+
+	if len(tagArgs) > 0 {
+		flt.Tags = tagArgs
+	}
+
+	if f.contains != "" {
+		flt.Contains = f.contains
+	}
+
+	if f.on != "" {
+		start, err := dateparse.Parse(f.on)
+		if err != nil {
+			return flt, fmt.Errorf("parsing --on date: %w", err)
+		}
+		startOfDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.Local)
+		endOfDay := time.Date(start.Year(), start.Month(), start.Day(), 23, 59, 59, 0, time.Local)
+		flt.StartDate = &startOfDay
+		flt.EndDate = &endOfDay
+	}
+
+	if f.from != "" {
+		start, err := dateparse.Parse(f.from)
+		if err != nil {
+			return flt, fmt.Errorf("parsing --from date: %w", err)
+		}
+		flt.StartDate = &start
+	}
+
+	if f.to != "" {
+		end, err := dateparse.ParseInclusive(f.to)
+		if err != nil {
+			return flt, fmt.Errorf("parsing --to date: %w", err)
+		}
+		flt.EndDate = &end
+	}
+
+	return flt, nil
 }

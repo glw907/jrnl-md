@@ -445,6 +445,43 @@ func TestLoadDayEncrypted(t *testing.T) {
 	}
 }
 
+func TestLoadDayAddEntrySaveRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write an existing day file with one entry.
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nMorning entry.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	// LoadDay, add a second entry, save.
+	fj := NewFolderJournal(dir, testOpts)
+	if err := fj.LoadDay(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local)); err != nil {
+		t.Fatalf("LoadDay failed: %v", err)
+	}
+
+	fj.AddEntry(time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local), "Afternoon entry.", false)
+
+	if err := fj.Save(); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Reload with full Load and verify both entries are present.
+	fj2 := NewFolderJournal(dir, testOpts)
+	if err := fj2.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	entries := fj2.AllEntries()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].Body != "Morning entry." {
+		t.Errorf("entry 0 body = %q, want %q", entries[0].Body, "Morning entry.")
+	}
+	if entries[1].Body != "Afternoon entry." {
+		t.Errorf("entry 1 body = %q, want %q", entries[1].Body, "Afternoon entry.")
+	}
+}
+
 func TestChangeEntryTimesCrossDay(t *testing.T) {
 	dir := t.TempDir()
 
