@@ -27,6 +27,11 @@ var dateOnlyLayouts = []string{
 	"January 2, 2006",
 }
 
+var dateTimeLayouts = []string{
+	"2006-01-02 15:04",
+	"2006-01-02 03:04 PM",
+}
+
 // Parse interprets a date string, trying explicit formats first then
 // falling back to natural language parsing. For date-only layouts,
 // defaultHour and defaultMinute are applied instead of midnight.
@@ -43,7 +48,7 @@ func Parse(input string, defaultHour, defaultMinute int) (time.Time, error) {
 	}
 
 	// Date+time layouts — time component is explicit, do not apply defaults.
-	for _, layout := range []string{"2006-01-02 15:04", "2006-01-02 03:04 PM"} {
+	for _, layout := range dateTimeLayouts {
 		if t, err := time.ParseInLocation(layout, input, time.Local); err == nil {
 			return t, nil
 		}

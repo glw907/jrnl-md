@@ -160,23 +160,18 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 	opts := journalOptions(cfg, encrypted, passphrase)
 	now := time.Now()
 
-	// Read from stdin when not a terminal and no text args were provided and no filter flags set.
 	if len(text) == 0 && !hasFilterFlags(f) && !f.edit && !term.IsTerminal(int(os.Stdin.Fd())) {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("reading stdin: %w", err)
 		}
-		body := strings.TrimSpace(string(data))
-		if body != "" {
-			text = []string{body}
+		if s := strings.TrimSpace(string(data)); s != "" {
+			text = []string{s}
 		}
 	}
 
 	if len(text) > 0 {
 		fj := journal.NewFolderJournal(path, opts)
-		if err := fj.LoadDay(now); err != nil {
-			return fmt.Errorf("loading journal: %w", err)
-		}
 		return writeInline(fj, text, cfg, now)
 	}
 

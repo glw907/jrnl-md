@@ -19,11 +19,12 @@ func writeInline(fj *journal.FolderJournal, text []string, cfg config.Config, no
 		candidate := body[:idx]
 		if t, err := dateparse.Parse(candidate, cfg.General.DefaultHour, cfg.General.DefaultMinute); err == nil {
 			entryTime = t
-			body = body[idx+2:]
-			if err := fj.LoadDay(entryTime); err != nil {
-				return fmt.Errorf("loading journal for date %s: %w", entryTime.Format("2006-01-02"), err)
-			}
+			body = body[idx+len(": "):]
 		}
+	}
+
+	if err := fj.LoadDay(entryTime); err != nil {
+		return fmt.Errorf("loading journal for date %s: %w", entryTime.Format("2006-01-02"), err)
 	}
 
 	starred := strings.HasSuffix(body, "*") || strings.HasPrefix(body, "*")
