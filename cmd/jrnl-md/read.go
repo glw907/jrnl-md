@@ -34,22 +34,25 @@ func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs
 	if f.export != "" {
 		var output string
 		var err error
-		switch strings.ToLower(f.export) {
-		case "json":
+		format := strings.ToLower(f.export)
+		switch format {
+		case export.FormatJSON:
 			output, err = export.JSON(entries, cfg)
-		case "md", "markdown":
+		case export.FormatMarkdown, "markdown":
 			output, err = export.Markdown(entries, cfg)
-		case "txt", "text":
+		case export.FormatText, "text":
 			output, err = export.Text(entries, cfg)
-		case "xml":
+		case export.FormatXML:
 			output, err = export.XML(entries, cfg)
-		case "yaml":
+		case export.FormatYAML:
 			output, err = export.YAML(entries, cfg)
 		default:
-			return fmt.Errorf("unknown export format %q (supported: json, md, txt, xml, yaml)", f.export)
+			return fmt.Errorf("unknown export format %q (supported: %s, %s, %s, %s, %s)",
+				f.export, export.FormatJSON, export.FormatMarkdown,
+				export.FormatText, export.FormatXML, export.FormatYAML)
 		}
 		if err != nil {
-			return fmt.Errorf("exporting as %s: %w", f.export, err)
+			return fmt.Errorf("exporting as %s: %w", format, err)
 		}
 		fmt.Print(output)
 		return nil
