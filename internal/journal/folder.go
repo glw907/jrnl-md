@@ -389,3 +389,24 @@ func (fj *FolderJournal) MarkAllModified() {
 	}
 }
 
+// ImportEntry adds e to the journal if no entry with the same timestamp exists.
+// Returns true if the entry was added, false if a duplicate was found (skipped).
+// LoadDay is called automatically if the target day is not yet loaded.
+func (fj *FolderJournal) ImportEntry(e Entry) (bool, error) {
+	key := dateKeyFromTime(e.Date)
+	if _, ok := fj.days[key]; !ok {
+		if err := fj.LoadDay(e.Date); err != nil {
+			return false, err
+		}
+	}
+	if d, ok := fj.days[key]; ok {
+		for _, existing := range d.entries {
+			if existing.Date.Equal(e.Date) {
+				return false, nil
+			}
+		}
+	}
+	fj.AddEntry(e.Date, e.Body, e.Starred)
+	return true, nil
+}
+

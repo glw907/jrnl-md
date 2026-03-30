@@ -659,3 +659,82 @@ func TestReplaceEntriesDeleteAll(t *testing.T) {
 		t.Fatalf("expected 0 entries after replace with nil, got %d", len(result))
 	}
 }
+
+func TestImportEntry_AddsNewEntry(t *testing.T) {
+	dir := t.TempDir()
+	fj := NewFolderJournal(dir, testOpts)
+
+	date := time.Date(2026, 1, 10, 9, 0, 0, 0, time.Local)
+	added, err := fj.ImportEntry(Entry{Date: date, Body: "New import."})
+	if err != nil {
+		t.Fatalf("ImportEntry failed: %v", err)
+	}
+	if !added {
+		t.Error("expected added=true for new entry")
+	}
+
+	entries := fj.AllEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Body != "New import." {
+		t.Errorf("unexpected body: %q", entries[0].Body)
+	}
+}
+
+func TestImportEntry_SkipsDuplicate(t *testing.T) {
+	dir := t.TempDir()
+	date := time.Date(2026, 1, 10, 9, 0, 0, 0, time.Local)
+
+	// Pre-populate a day file with an entry at the same timestamp
+	writeDayFile(t, dir, date, "# 2026-01-10 Saturday\n\n## [09:00 AM]\n\nExisting entry.\n", "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	// ImportEntry must call LoadDay internally — do NOT call fj.Load() first
+
+	added, err := fj.ImportEntry(Entry{Date: date, Body: "Duplicate entry."})
+	if err != nil {
+		t.Fatalf("ImportEntry failed: %v", err)
+	}
+	if added {
+		t.Error("expected added=false for duplicate timestamp")
+	}
+
+	// Confirm original is untouched
+	if err := fj.Load(); err != nil {
+		t.Fatal(err)
+	}
+	entries := fj.AllEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Body != "Existing entry." {
+		t.Errorf("expected original body, got %q", entries[0].Body)
+	}
+}
+
+func TestImportEntry_MultipleEntries(t *testing.T) {
+	dir := t.TempDir()
+	fj := NewFolderJournal(dir, testOpts)
+
+	d1 := time.Date(2026, 1, 10, 9, 0, 0, 0, time.Local)
+	d2 := time.Date(2026, 1, 11, 15, 0, 0, 0, time.Local)
+
+	added1, err := fj.ImportEntry(Entry{Date: d1, Body: "Day one entry."})
+	if err != nil {
+		t.Fatalf("ImportEntry d1: %v", err)
+	}
+	added2, err := fj.ImportEntry(Entry{Date: d2, Body: "Day two entry."})
+	if err != nil {
+		t.Fatalf("ImportEntry d2: %v", err)
+	}
+
+	if !added1 || !added2 {
+		t.Errorf("expected both added, got added1=%v added2=%v", added1, added2)
+	}
+
+	entries := fj.AllEntries()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+}
