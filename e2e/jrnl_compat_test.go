@@ -605,6 +605,25 @@ func TestCompat_Import(t *testing.T) {
 	}
 }
 
+func TestCompat_ImportFromStdin(t *testing.T) {
+	env := newTestEnv(t)
+
+	importContent := "# 2026-02-05 Thursday\n\n## [11:00 AM]\n\nStdin imported entry.\n"
+	_, stderr := runWithStdin(t, env, importContent, "--import", "-")
+	if !strings.Contains(stderr, "Imported 1 entries") {
+		t.Errorf("expected 'Imported 1 entries' in stderr, got: %q", stderr)
+	}
+
+	day := time.Date(2026, 2, 5, 0, 0, 0, 0, time.Local)
+	if !dayFileExists(t, env.journalDir, day) {
+		t.Fatal("expected day file for 2026-02-05 after stdin import")
+	}
+	content := dayFileContent(t, env.journalDir, day)
+	if !strings.Contains(content, "Stdin imported entry.") {
+		t.Errorf("expected 'Stdin imported entry.' in day file, got:\n%s", content)
+	}
+}
+
 // --- Config ---
 
 func TestCompat_ConfigFileFlag(t *testing.T) {
