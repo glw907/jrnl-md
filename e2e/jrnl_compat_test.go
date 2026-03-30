@@ -351,12 +351,56 @@ func TestCompat_ListTagsFrequencySorted(t *testing.T) {
 
 // --- Edit ---
 
+// TestCompat_EditNoFilter: jrnl --edit (no filter) opens all entries via editFiltered.
 func TestCompat_EditNoFilter(t *testing.T) {
-	t.Skip("pending Pass 3: --edit always opens all/last-N entries via editFiltered")
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	editorPath := writeMockEditor(t, env.dir, "Starred afternoon entry", "Edited starred entry")
+	patchConfigEditor(t, env.configPath, editorPath)
+
+	_, stderr := run(t, env, "--edit", "--num", "99")
+
+	if strings.Contains(stderr, "error") || strings.Contains(stderr, "Error") {
+		t.Fatalf("unexpected error: %q", stderr)
+	}
+
+	march1 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local)
+	content := dayFileContent(t, env.journalDir, march1)
+	if !strings.Contains(content, "Edited starred entry") {
+		t.Errorf("expected edited body in day file, got:\n%s", content)
+	}
+	if strings.Contains(content, "Starred afternoon entry") {
+		t.Errorf("expected original text to be replaced, got:\n%s", content)
+	}
 }
 
+// TestCompat_EditWithFilter: jrnl --edit @tag edits only matching entries.
 func TestCompat_EditWithFilter(t *testing.T) {
-	t.Skip("pending Pass 3: --edit with filter flags via editFiltered")
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	editorPath := writeMockEditor(t, env.dir, "First @work entry", "Edited via filter")
+	patchConfigEditor(t, env.configPath, editorPath)
+
+	_, stderr := run(t, env, "@work", "--edit")
+
+	if strings.Contains(stderr, "error") || strings.Contains(stderr, "Error") {
+		t.Fatalf("unexpected error: %q", stderr)
+	}
+
+	march1 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local)
+	march15 := time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local)
+
+	content1 := dayFileContent(t, env.journalDir, march1)
+	if !strings.Contains(content1, "Edited via filter") {
+		t.Errorf("expected @work entry to be edited in march1, got:\n%s", content1)
+	}
+
+	content15 := dayFileContent(t, env.journalDir, march15)
+	if !strings.Contains(content15, "Mid-month @personal") {
+		t.Errorf("expected unfiltered entry to be unchanged in march15, got:\n%s", content15)
+	}
 }
 
 // --- Delete ---

@@ -38,8 +38,8 @@ After each pass, `go test ./e2e/... -run TestCompat -v` must show:
 |------|--------|-------|
 | Compat Suite | Done | Established e2e/jrnl_compat_test.go and this CLAUDE.md |
 | Pass 1: CLI & Display Polish | Done | Filter flags, tag highlighting, --format/--file, --tags sort |
-| Pass 2: Date & Time | Pending | Date-prefixed entries, default_hour/default_minute, stdin write, --config-file |
-| Pass 3: --edit with Filters | Pending | --edit always via editFiltered, filtered and unfiltered |
+| Pass 2: Date & Time | Done | Date-prefixed entries, default_hour/default_minute, stdin write, --config-file |
+| Pass 3: --edit with Filters | Done | --edit always via editFiltered, filtered and unfiltered |
 | Pass 4: Import | Pending | --import FILE |
 | Pass 5: Per-journal Config | Pending | Per-journal config overrides, templates |
 | Docs Pass | Pending | README.md, docs/config.md polish |
