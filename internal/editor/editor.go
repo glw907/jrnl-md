@@ -11,6 +11,7 @@ import (
 
 	"github.com/glw907/jrnl-md/internal/atomicfile"
 	"github.com/glw907/jrnl-md/internal/crypto"
+	"github.com/glw907/jrnl-md/internal/journal"
 )
 
 // PrepareDayFile ensures a day file exists with a day heading and a new
@@ -31,10 +32,10 @@ func PrepareDayFile(path string, date time.Time, dateFmt, timeFmt, template stri
 	}
 
 	if content == "" {
-		content = fmt.Sprintf("# %s %s\n", date.Format(dateFmt), date.Format("Monday"))
+		content = journal.DayHeading(date, dateFmt) + "\n"
 	}
 
-	content += fmt.Sprintf("\n## [%s]\n\n", date.Format(timeFmt))
+	content += "\n" + journal.EntryHeading(date, timeFmt, false) + "\n\n"
 
 	if template != "" {
 		content += template
@@ -87,9 +88,9 @@ func countLines(text string) int {
 // always appended.
 func prepareEncryptedContent(existing string, date time.Time, dateFmt, timeFmt, template string) (string, int) {
 	if existing == "" {
-		existing = fmt.Sprintf("# %s %s\n", date.Format(dateFmt), date.Format("Monday"))
+		existing = journal.DayHeading(date, dateFmt) + "\n"
 	}
-	existing += fmt.Sprintf("\n## [%s]\n\n", date.Format(timeFmt))
+	existing += "\n" + journal.EntryHeading(date, timeFmt, false) + "\n\n"
 	if template != "" {
 		existing += template
 		if !strings.HasSuffix(template, "\n") {
