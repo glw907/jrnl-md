@@ -1,9 +1,11 @@
 package e2e
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -61,11 +63,39 @@ func TestCompat_WriteInlineEntry(t *testing.T) {
 }
 
 func TestCompat_WriteFromStdin(t *testing.T) {
-	t.Skip("pending Pass 2: stdin entry writing")
+	env := newTestEnv(t)
+	today := time.Now()
+
+	_, stderr := runWithStdin(t, env, "Compat stdin entry.\n")
+
+	if !strings.Contains(stderr, "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", stderr)
+	}
+	if !dayFileExists(t, env.journalDir, today) {
+		t.Fatal("expected day file for today after stdin write")
+	}
+	content := dayFileContent(t, env.journalDir, today)
+	if !strings.Contains(content, "Compat stdin entry.") {
+		t.Errorf("expected stdin body in day file, got:\n%s", content)
+	}
 }
 
 func TestCompat_DatePrefixedEntry(t *testing.T) {
-	t.Skip("pending Pass 2: date-prefixed inline entries")
+	env := newTestEnv(t)
+	yesterday := time.Now().AddDate(0, 0, -1)
+
+	_, stderr := run(t, env, "yesterday: Compat date-prefix entry.")
+
+	if !strings.Contains(stderr, "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", stderr)
+	}
+	if !dayFileExists(t, env.journalDir, yesterday) {
+		t.Fatal("expected day file for yesterday after date-prefixed entry")
+	}
+	content := dayFileContent(t, env.journalDir, yesterday)
+	if !strings.Contains(content, "Compat date-prefix entry.") {
+		t.Errorf("expected entry body in yesterday's day file, got:\n%s", content)
+	}
 }
 
 // --- Reading / Listing ---
@@ -494,11 +524,55 @@ func TestCompat_Import(t *testing.T) {
 // --- Config ---
 
 func TestCompat_ConfigFileFlag(t *testing.T) {
-	t.Skip("pending Pass 2: --config-file as primary flag (--config kept as hidden alias)")
+	env := newTestEnv(t)
+	today := time.Now()
+
+	// Invoke binary directly with --config-file (bypassing newCmd which uses --config)
+	cmd := exec.Command(binary, "--config-file", env.configPath, "Config-file-flag compat entry.")
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("binary failed with --config-file: %v\nstderr: %s", err, errBuf.String())
+	}
+	if !strings.Contains(errBuf.String(), "Entry added") {
+		t.Errorf("expected 'Entry added', got: %q", errBuf.String())
+	}
+	if !dayFileExists(t, env.journalDir, today) {
+		t.Fatal("expected day file for today after --config-file write")
+	}
 }
 
 func TestCompat_DefaultHourMinute(t *testing.T) {
-	t.Skip("pending Pass 2: default_hour/default_minute applied to date-only date expressions")
+	env := newTestEnv(t)
+
+	// Patch default_hour and default_minute into the existing config
+	data, err := os.ReadFile(env.configPath)
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+	patched := strings.Replace(string(data),
+		"[general]\neditor = \"\"\nhighlight = false\nlinewrap = 0\nindent_character = \"\"",
+		"[general]\neditor = \"\"\nhighlight = false\nlinewrap = 0\nindent_character = \"\"\ndefault_hour = 14\ndefault_minute = 30",
+		1)
+	if !strings.Contains(patched, "default_hour = 14") {
+		t.Fatal("config patch for default_hour did not apply — check testConfigHeader")
+	}
+	if err := os.WriteFile(env.configPath, []byte(patched), 0644); err != nil {
+		t.Fatalf("failed to write patched config: %v", err)
+	}
+
+	target := time.Date(2025, 6, 1, 0, 0, 0, 0, time.Local)
+	run(t, env, "2025-06-01: Default hour test entry.")
+
+	if !dayFileExists(t, env.journalDir, target) {
+		t.Fatal("expected day file for 2025-06-01")
+	}
+	content := dayFileContent(t, env.journalDir, target)
+	// The entry heading should reflect 02:30 PM (14:30 in 12h format)
+	if !strings.Contains(content, "02:30 PM") {
+		t.Errorf("expected time heading '02:30 PM' in day file content, got:\n%s", content)
+	}
 }
 
 // --- Per-journal config ---
