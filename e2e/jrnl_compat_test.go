@@ -94,7 +94,6 @@ func TestCompat_ShortListing(t *testing.T) {
 	if nonEmpty < 3 {
 		t.Errorf("expected at least 3 non-empty lines for --short with 3 entries, got %d:\n%s", nonEmpty, stdout)
 	}
-	// Each line should contain a date
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -171,6 +170,9 @@ func TestCompat_DateRangeTo(t *testing.T) {
 	if !strings.Contains(stderr, "2 entries found") {
 		t.Errorf("expected '2 entries found' for --to 2026-03-01, got: %q", stderr)
 	}
+	if !strings.Contains(stdout, "First @work entry") {
+		t.Errorf("expected March 1 entry in output, got: %q", stdout)
+	}
 	if strings.Contains(stdout, "Mid-month @personal") {
 		t.Errorf("expected later entry NOT in output, got: %q", stdout)
 	}
@@ -185,6 +187,9 @@ func TestCompat_DateRangeOn(t *testing.T) {
 
 	if !strings.Contains(stderr, "2 entries found") {
 		t.Errorf("expected '2 entries found' for --on 2026-03-01, got: %q", stderr)
+	}
+	if !strings.Contains(stdout, "First @work entry") {
+		t.Errorf("expected March 1 entry in output, got: %q", stdout)
 	}
 	if strings.Contains(stdout, "Mid-month @personal") {
 		t.Errorf("expected March 15 entry NOT in output, got: %q", stdout)
@@ -457,8 +462,8 @@ func TestCompat_ExportMarkdown(t *testing.T) {
 
 	stdout, _ := run(t, env, "--format", "md", "--num", "99")
 
-	if !strings.Contains(stdout, "#") {
-		t.Errorf("expected markdown headings in --format md output, got: %q", stdout)
+	if !strings.Contains(stdout, "## ") {
+		t.Errorf("expected markdown entry headings (## ) in --format md output, got: %q", stdout)
 	}
 	if !strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected entry body in --format md output, got: %q", stdout)
@@ -474,6 +479,9 @@ func TestCompat_ExportText(t *testing.T) {
 
 	if !strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected entry body in --format txt output, got: %q", stdout)
+	}
+	if strings.Contains(stdout, "{") {
+		t.Errorf("expected plain text output (no JSON/markdown), got: %q", stdout)
 	}
 }
 
@@ -537,6 +545,9 @@ func TestCompat_TagHighlighting(t *testing.T) {
 	}
 	highlighted := strings.Replace(string(data), "highlight = false", "highlight = true", 1)
 	highlighted = strings.Replace(highlighted, `tags = "none"`, `tags = "cyan"`, 1)
+	if !strings.Contains(highlighted, "highlight = true") {
+		t.Fatal("config patch for highlight=true did not apply — check testConfigHeader")
+	}
 	if err := os.WriteFile(env.configPath, []byte(highlighted), 0644); err != nil {
 		t.Fatal(err)
 	}
