@@ -186,7 +186,7 @@ func listJournals(cfg config.Config) error {
 }
 
 func hasFilterFlags(f *flags) bool {
-	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt || f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" || f.contains != "" || f.tags || f.export != "" || f.format != ""
+	return f.n > 0 || f.short || f.starred || f.delete || f.encrypt || f.decrypt || f.changeTime != "" || f.from != "" || f.to != "" || f.on != "" || f.contains != "" || f.tags || f.export != ""
 }
 
 func journalEncrypted(jcfg config.JournalConfig, cfg config.Config) bool {
