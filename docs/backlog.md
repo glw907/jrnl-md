@@ -11,6 +11,20 @@ Items worth implementing, roughly prioritized. Items explicitly excluded by desi
 
 ---
 
+## Compat test suite audit
+
+**Priority: High** — we know the suite has gaps (e.g. `--format` display aliases were implemented but untested until caught manually).
+
+Do a thorough review of canonical jrnl functionality against `e2e/jrnl_compat_test.go`:
+
+1. Cross-reference every feature in `docs/jrnl-compat.md` against the test suite — confirm each has a real assertion, not just a pass-through.
+2. Check jrnl's full feature set (flags, config keys, output formats, edge cases) against what we test — the compat table itself may have omissions.
+3. Add `TestCompat_*` tests for anything missing. Update `docs/jrnl-compat.md` if new rows are needed.
+
+Known gaps to start with: `--format pretty/short/tags/dates`, `--export xml`, `--export yaml`, `linewrap`, `indent_character`, starred-entry write syntax (`jrnl * text`), `-N` shorthand, encrypt/decrypt.
+
+---
+
 ## `--config-override key=value`
 
 **Priority: Low** — power-user escape hatch; not commonly needed.
