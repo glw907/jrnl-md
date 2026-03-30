@@ -130,14 +130,23 @@ func showTags(entries []journal.Entry) error {
 		return nil
 	}
 
-	tags := make([]string, 0, len(counts))
-	for tag := range counts {
-		tags = append(tags, tag)
+	type tagCount struct {
+		tag   string
+		count int
 	}
-	sort.Strings(tags)
+	tc := make([]tagCount, 0, len(counts))
+	for tag, n := range counts {
+		tc = append(tc, tagCount{tag, n})
+	}
+	sort.Slice(tc, func(i, j int) bool {
+		if tc[i].count != tc[j].count {
+			return tc[i].count > tc[j].count
+		}
+		return tc[i].tag < tc[j].tag
+	})
 
-	for _, tag := range tags {
-		fmt.Printf("%-20s : %d\n", tag, counts[tag])
+	for _, item := range tc {
+		fmt.Printf("%-20s : %d\n", item.tag, item.count)
 	}
 	return nil
 }
