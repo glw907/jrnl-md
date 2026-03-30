@@ -55,15 +55,14 @@ func NewFolderJournal(path string, opts Options) *FolderJournal {
 // Load reads all day files from disk. If the journal directory does not
 // exist, Load succeeds with an empty journal.
 func (fj *FolderJournal) Load() error {
-	if _, err := os.Stat(fj.path); os.IsNotExist(err) {
-		return nil
-	}
-
 	plainExt := "." + fj.opts.FileExt
 	encExt := plainExt + ".age"
 
 	return filepath.WalkDir(fj.path, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
+			if path == fj.path && errors.Is(err, os.ErrNotExist) {
+				return filepath.SkipAll
+			}
 			return err
 		}
 		if d.IsDir() {
@@ -318,7 +317,6 @@ func (fj *FolderJournal) ChangeEntryTimes(entries []Entry, newTime time.Time) {
 
 	newKey := dateKeyFromTime(newTime)
 
-	// Snapshot keys to avoid mutation during iteration.
 	keys := make([]dateKey, 0, len(fj.days))
 	for k := range fj.days {
 		keys = append(keys, k)

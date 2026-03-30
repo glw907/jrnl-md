@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -11,13 +10,9 @@ import (
 	"github.com/glw907/jrnl-md/internal/journal"
 )
 
-func editEntry(fj *journal.FolderJournal, cfg config.Config, encrypted bool, passphrase string) error {
+func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, encrypted bool, passphrase string) error {
 	if cfg.General.Editor == "" {
-		msg := "no editor configured"
-		if configPath, err := config.DefaultPath(); err == nil {
-			msg = fmt.Sprintf("no editor configured. Set editor in %s", configPath)
-		}
-		return errors.New(msg)
+		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
 	}
 
 	now := time.Now()

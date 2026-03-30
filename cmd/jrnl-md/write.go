@@ -10,14 +10,14 @@ import (
 	"github.com/glw907/jrnl-md/internal/journal"
 )
 
-func writeInline(fj *journal.FolderJournal, text []string, cfg config.Config) error {
+func writeInline(fj *journal.FolderJournal, text []string, cfg config.Config, now time.Time) error {
 	body := strings.Join(text, " ")
 	starred := strings.HasSuffix(body, "*") || strings.HasPrefix(body, "*")
 	if starred {
 		body = strings.Trim(body, "* ")
 	}
 
-	fj.AddEntry(time.Now(), body, starred)
+	fj.AddEntry(now, body, starred)
 
 	if err := fj.Save(); err != nil {
 		return fmt.Errorf("saving journal: %w", err)

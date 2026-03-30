@@ -139,25 +139,22 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 	opts := journalOptions(cfg, encrypted, passphrase)
 	now := time.Now()
 
-	// Write path: LoadDay
 	if len(text) > 0 {
 		fj := journal.NewFolderJournal(path, opts)
 		if err := fj.LoadDay(now); err != nil {
 			return fmt.Errorf("loading journal: %w", err)
 		}
-		return writeInline(fj, text, cfg)
+		return writeInline(fj, text, cfg, now)
 	}
 
-	// Edit path: LoadDay
 	if f.edit || (len(args) == 0 && !hasFilterFlags(f)) {
 		fj := journal.NewFolderJournal(path, opts)
 		if err := fj.LoadDay(now); err != nil {
 			return fmt.Errorf("loading journal: %w", err)
 		}
-		return editEntry(fj, cfg, encrypted, passphrase)
+		return editEntry(fj, cfg, configPath, encrypted, passphrase)
 	}
 
-	// All read/mutate paths: full Load
 	fj := journal.NewFolderJournal(path, opts)
 	if err := fj.Load(); err != nil {
 		return fmt.Errorf("loading journal: %w", err)
