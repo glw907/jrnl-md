@@ -140,6 +140,8 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 		return fmt.Errorf("expanding path for journal %q: %w", journalName, err)
 	}
 
+	cfg = config.ResolvedJournalConfig(cfg, journalCfg)
+
 	encrypted := journalEncrypted(journalCfg, cfg)
 
 	if f.encrypt {

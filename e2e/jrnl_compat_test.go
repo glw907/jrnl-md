@@ -622,11 +622,41 @@ func TestCompat_DefaultHourMinute(t *testing.T) {
 // --- Per-journal config ---
 
 func TestCompat_PerJournalConfig(t *testing.T) {
-	t.Skip("pending Pass 5: per-journal config overrides")
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	// Set a per-journal editor (global editor stays empty)
+	editorPath := writeMockEditor(t, env.dir, "First @work entry", "PerJournal-edited entry")
+
+	data, err := os.ReadFile(env.configPath)
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+	patched := strings.Replace(string(data),
+		fmt.Sprintf("[journals.default]\npath = %q", env.journalDir),
+		fmt.Sprintf("[journals.default]\npath = %q\neditor = %q", env.journalDir, editorPath),
+		1)
+	if !strings.Contains(patched, editorPath) {
+		t.Fatalf("per-journal editor patch did not apply")
+	}
+	if err := os.WriteFile(env.configPath, []byte(patched), 0644); err != nil {
+		t.Fatalf("failed to write patched config: %v", err)
+	}
+
+	_, stderr := run(t, env, "--edit", "--num", "99")
+	if strings.Contains(stderr, "error") || strings.Contains(stderr, "Error") {
+		t.Fatalf("unexpected error in stderr: %q", stderr)
+	}
+
+	march1 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local)
+	content := dayFileContent(t, env.journalDir, march1)
+	if !strings.Contains(content, "PerJournal-edited entry") {
+		t.Errorf("expected per-journal editor to be invoked, got:\n%s", content)
+	}
 }
 
 func TestCompat_Templates(t *testing.T) {
-	t.Skip("pending Pass 5: template support")
+	t.Skip("pending: template rendering (editor pre-fill) not yet implemented")
 }
 
 // --- Display ---
