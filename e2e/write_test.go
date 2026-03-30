@@ -176,3 +176,21 @@ func TestWriteNoDatePrefix(t *testing.T) {
 		t.Errorf("expected full 'foo: bar' body in today's day file, got:\n%s", content)
 	}
 }
+
+func TestWriteFromStdin(t *testing.T) {
+	env := newTestEnv(t)
+	today := time.Now()
+
+	_, stderr := runWithStdin(t, env, "Stdin entry body.\n")
+
+	if !strings.Contains(stderr, "Entry added") {
+		t.Errorf("expected 'Entry added' in stderr, got: %q", stderr)
+	}
+	if !dayFileExists(t, env.journalDir, today) {
+		t.Fatal("expected day file for today")
+	}
+	content := dayFileContent(t, env.journalDir, today)
+	if !strings.Contains(content, "Stdin entry body.") {
+		t.Errorf("expected stdin body in day file, got:\n%s", content)
+	}
+}
