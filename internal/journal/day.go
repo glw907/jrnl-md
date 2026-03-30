@@ -93,3 +93,37 @@ func (d *day) addEntry(body string, starred bool, date time.Time) {
 	})
 	d.modified = true
 }
+
+// ParseMultiDay parses a multi-day markdown blob (as written by editFiltered to a
+// temp file) into a flat slice of entries. Each day section begins with a line
+// of the form "# YYYY-MM-DD Weekday". Lines starting with "# " followed by a
+// non-digit are ignored (not treated as day headings).
+func ParseMultiDay(text, dateFmt, timeFmt string) ([]Entry, error) {
+	lines := strings.Split(text, "\n")
+	var sectionStarts []int
+	for i, line := range lines {
+		if strings.HasPrefix(line, "# ") && len(line) > 2 && line[2] >= '0' && line[2] <= '9' {
+			sectionStarts = append(sectionStarts, i)
+		}
+	}
+
+	if len(sectionStarts) == 0 {
+		return nil, nil
+	}
+
+	var entries []Entry
+	for i, start := range sectionStarts {
+		end := len(lines)
+		if i+1 < len(sectionStarts) {
+			end = sectionStarts[i+1]
+		}
+		section := strings.Join(lines[start:end], "\n")
+		d, err := parseDay(section, dateFmt, timeFmt)
+		if err != nil {
+			return nil, fmt.Errorf("parsing day section at line %d: %w", start+1, err)
+		}
+		entries = append(entries, d.entries...)
+	}
+
+	return entries, nil
+}

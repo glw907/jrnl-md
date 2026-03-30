@@ -171,3 +171,73 @@ func TestAddEntry(t *testing.T) {
 		t.Errorf("body = %q", d.entries[0].Body)
 	}
 }
+
+func TestParseMultiDaySingleDay(t *testing.T) {
+	text := "# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nFirst entry.\n\n## [02:00 PM]\n\nSecond entry.\n"
+
+	entries, err := ParseMultiDay(text, "2006-01-02", "03:04 PM")
+	if err != nil {
+		t.Fatalf("ParseMultiDay failed: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].Body != "First entry." {
+		t.Errorf("entry 0 body = %q", entries[0].Body)
+	}
+	if entries[1].Body != "Second entry." {
+		t.Errorf("entry 1 body = %q", entries[1].Body)
+	}
+}
+
+func TestParseMultiDayMultipleDays(t *testing.T) {
+	text := "# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nDay one entry.\n\n# 2026-03-15 Sunday\n\n## [10:00 AM]\n\nDay two entry.\n"
+
+	entries, err := ParseMultiDay(text, "2006-01-02", "03:04 PM")
+	if err != nil {
+		t.Fatalf("ParseMultiDay failed: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].Body != "Day one entry." {
+		t.Errorf("entry 0 body = %q", entries[0].Body)
+	}
+	if entries[0].Date.Day() != 1 {
+		t.Errorf("entry 0 day = %d, want 1", entries[0].Date.Day())
+	}
+	if entries[1].Body != "Day two entry." {
+		t.Errorf("entry 1 body = %q", entries[1].Body)
+	}
+	if entries[1].Date.Day() != 15 {
+		t.Errorf("entry 1 day = %d, want 15", entries[1].Date.Day())
+	}
+}
+
+func TestParseMultiDayEmpty(t *testing.T) {
+	entries, err := ParseMultiDay("", "2006-01-02", "03:04 PM")
+	if err != nil {
+		t.Fatalf("ParseMultiDay on empty string failed: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries on empty input, got %d", len(entries))
+	}
+}
+
+func TestParseMultiDayRoundtrip(t *testing.T) {
+	original := "# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nMorning. @work\n\n## [02:00 PM] *\n\nStarred entry.\n\n# 2026-03-15 Sunday\n\n## [10:00 AM]\n\nMid-month.\n"
+
+	entries, err := ParseMultiDay(original, "2006-01-02", "03:04 PM")
+	if err != nil {
+		t.Fatalf("ParseMultiDay failed: %v", err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+	if !entries[1].Starred {
+		t.Error("expected entry 1 to be starred")
+	}
+	if entries[1].Body != "Starred entry." {
+		t.Errorf("entry 1 body = %q", entries[1].Body)
+	}
+}
