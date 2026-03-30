@@ -60,6 +60,35 @@ func PrepareDayFile(path string, date time.Time, cfg Config) (int, error) {
 	return countLines(content), nil
 }
 
+// WriteTempAndEdit writes content to a temp file, opens the editor at startLine,
+// reads back the edited bytes, and removes the temp file on return.
+func WriteTempAndEdit(editorCmd, content string, startLine int) ([]byte, error) {
+	tmpFile, err := os.CreateTemp("", "jrnl-md-*.md")
+	if err != nil {
+		return nil, fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		tmpFile.Close()
+		return nil, fmt.Errorf("writing temp file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return nil, fmt.Errorf("closing temp file: %w", err)
+	}
+
+	if err := Launch(editorCmd, tmpPath, startLine); err != nil {
+		return nil, fmt.Errorf("launching editor: %w", err)
+	}
+
+	edited, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading edited file: %w", err)
+	}
+	return edited, nil
+}
+
 // Launch opens the given file in the editor command, positioning the
 // cursor at the specified line.
 func Launch(editorCmd, path string, line int) error {
@@ -126,28 +155,9 @@ func LaunchEncrypted(encPath string, date time.Time, cfg Config) error {
 
 	content, lineCount := prepareEncryptedContent(existing, date, cfg)
 
-	tmpFile, err := os.CreateTemp("", "jrnl-md-*.md")
+	edited, err := WriteTempAndEdit(cfg.Command, content, lineCount)
 	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	if _, err := tmpFile.WriteString(content); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("writing temp file: %w", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("closing temp file: %w", err)
-	}
-
-	if err := Launch(cfg.Command, tmpPath, lineCount); err != nil {
-		return fmt.Errorf("launching editor: %w", err)
-	}
-
-	edited, err := os.ReadFile(tmpPath)
-	if err != nil {
-		return fmt.Errorf("reading edited file: %w", err)
+		return err
 	}
 
 	dir := filepath.Dir(encPath)

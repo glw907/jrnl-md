@@ -94,10 +94,27 @@ func (d *day) addEntry(body string, starred bool, date time.Time) {
 	d.modified = true
 }
 
-// ParseMultiDay parses a multi-day markdown blob (as written by editFiltered to a
-// temp file) into a flat slice of entries. Each day section begins with a line
-// of the form "# YYYY-MM-DD Weekday". Lines starting with "# " followed by a
-// non-digit are ignored (not treated as day headings).
+// FormatEntries serializes a flat slice of entries as a multi-day markdown blob.
+// Entries must be sorted by date; unsorted input produces malformed day headings.
+func FormatEntries(entries []Entry, dateFmt, timeFmt string) string {
+	var b strings.Builder
+	var lastDayStr string
+	for _, e := range entries {
+		dayStr := e.Date.Format(dateFmt)
+		if dayStr != lastDayStr {
+			b.WriteString(DayHeading(e.Date, dateFmt))
+			b.WriteString("\n")
+			lastDayStr = dayStr
+		}
+		b.WriteString("\n")
+		b.WriteString(e.Format(timeFmt))
+	}
+	return b.String()
+}
+
+// ParseMultiDay parses a multi-day markdown blob into a flat slice of entries.
+// Each day section begins with "# YYYY-MM-DD Weekday". Lines starting with
+// "# " followed by a non-digit are not treated as day headings.
 func ParseMultiDay(text, dateFmt, timeFmt string) ([]Entry, error) {
 	lines := strings.Split(text, "\n")
 	var sectionStarts []int
