@@ -95,7 +95,7 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	}
 
 	if f.on != "" {
-		start, err := dateparse.Parse(f.on)
+		start, err := dateparse.Parse(f.on, 0, 0)
 		if err != nil {
 			return flt, fmt.Errorf("parsing --on date: %w", err)
 		}
@@ -106,7 +106,7 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	}
 
 	if f.from != "" {
-		start, err := dateparse.Parse(f.from)
+		start, err := dateparse.Parse(f.from, 0, 0)
 		if err != nil {
 			return flt, fmt.Errorf("parsing --from date: %w", err)
 		}
@@ -114,7 +114,7 @@ func buildFilter(f *flags, tagArgs []string) (journal.Filter, error) {
 	}
 
 	if f.to != "" {
-		end, err := dateparse.ParseInclusive(f.to)
+		end, err := dateparse.ParseInclusive(f.to, 0, 0)
 		if err != nil {
 			return flt, fmt.Errorf("parsing --to date: %w", err)
 		}

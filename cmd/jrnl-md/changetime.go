@@ -11,7 +11,7 @@ import (
 )
 
 func changeTime(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs []string) error {
-	newTime, err := dateparse.Parse(f.changeTime)
+	newTime, err := dateparse.Parse(f.changeTime, 0, 0)
 	if err != nil {
 		return fmt.Errorf("parsing --change-time date: %w", err)
 	}

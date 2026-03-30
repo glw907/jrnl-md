@@ -18,24 +18,32 @@ func init() {
 	parser.Add(common.All...)
 }
 
+// dateOnlyLayouts are layouts that match a date without a time component.
+// When one of these matches, defaultHour and defaultMinute are applied.
+var dateOnlyLayouts = []string{
+	"2006-01-02",
+	"01/02/2006",
+	"Jan 2, 2006",
+	"January 2, 2006",
+}
+
 // Parse interprets a date string, trying explicit formats first then
-// falling back to natural language parsing.
-func Parse(input string) (time.Time, error) {
+// falling back to natural language parsing. For date-only layouts,
+// defaultHour and defaultMinute are applied instead of midnight.
+func Parse(input string, defaultHour, defaultMinute int) (time.Time, error) {
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return time.Time{}, fmt.Errorf("empty date string")
 	}
 
-	layouts := []string{
-		"2006-01-02",
-		"2006-01-02 15:04",
-		"2006-01-02 03:04 PM",
-		"01/02/2006",
-		"Jan 2, 2006",
-		"January 2, 2006",
+	for _, layout := range dateOnlyLayouts {
+		if t, err := time.ParseInLocation(layout, input, time.Local); err == nil {
+			return time.Date(t.Year(), t.Month(), t.Day(), defaultHour, defaultMinute, 0, 0, time.Local), nil
+		}
 	}
 
-	for _, layout := range layouts {
+	// Date+time layouts — time component is explicit, do not apply defaults.
+	for _, layout := range []string{"2006-01-02 15:04", "2006-01-02 03:04 PM"} {
 		if t, err := time.ParseInLocation(layout, input, time.Local); err == nil {
 			return t, nil
 		}
@@ -54,8 +62,8 @@ func Parse(input string) (time.Time, error) {
 
 // ParseInclusive parses a date and returns end-of-day (23:59:59) so
 // range filters include the full day.
-func ParseInclusive(input string) (time.Time, error) {
-	t, err := Parse(input)
+func ParseInclusive(input string, defaultHour, defaultMinute int) (time.Time, error) {
+	t, err := Parse(input, defaultHour, defaultMinute)
 	if err != nil {
 		return t, err
 	}
