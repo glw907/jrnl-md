@@ -1,8 +1,8 @@
 package display
 
 import (
-	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/fatih/color"
@@ -65,7 +65,7 @@ func TerminalWidth() int {
 }
 
 // ColorFunc returns a function that wraps text in the named ANSI color.
-// Returns fmt.Sprint for "none" or unrecognized names.
+// Returns nil for "none" or unrecognized names.
 func ColorFunc(name string) func(a ...any) string {
 	switch strings.ToLower(name) {
 	case "black":
@@ -85,6 +85,20 @@ func ColorFunc(name string) func(a ...any) string {
 	case "white":
 		return color.New(color.FgWhite).SprintFunc()
 	default:
-		return fmt.Sprint
+		return nil
 	}
+}
+
+// HighlightTags replaces tag occurrences in body with colorFn-wrapped
+// versions. tagSymbols is the set of tag prefix characters (e.g. "@").
+// If colorFn is nil or tagSymbols is empty, body is returned unchanged.
+func HighlightTags(body, tagSymbols string, colorFn func(a ...any) string) string {
+	if colorFn == nil || tagSymbols == "" {
+		return body
+	}
+	escaped := regexp.QuoteMeta(tagSymbols)
+	re := regexp.MustCompile(`[` + escaped + `]\w+`)
+	return re.ReplaceAllStringFunc(body, func(match string) string {
+		return colorFn(match)
+	})
 }

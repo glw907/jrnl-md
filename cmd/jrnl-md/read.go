@@ -68,8 +68,28 @@ func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs
 		indent = cfg.General.IndentCharacter + " "
 	}
 
-	dateColor := display.ColorFunc(cfg.Colors.Date)
-	bodyColor := display.ColorFunc(cfg.Colors.Body)
+	dateColorFn := display.ColorFunc(cfg.Colors.Date)
+	dateColor := func(a ...any) string {
+		if dateColorFn != nil {
+			return dateColorFn(a...)
+		}
+		s := ""
+		for _, v := range a {
+			s += fmt.Sprint(v)
+		}
+		return s
+	}
+	bodyColorFn := display.ColorFunc(cfg.Colors.Body)
+	bodyColor := func(a ...any) string {
+		if bodyColorFn != nil {
+			return bodyColorFn(a...)
+		}
+		s := ""
+		for _, v := range a {
+			s += fmt.Sprint(v)
+		}
+		return s
+	}
 
 	for _, e := range entries {
 		if f.short {
