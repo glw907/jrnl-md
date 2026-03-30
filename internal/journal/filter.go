@@ -99,7 +99,7 @@ func (f Filter) matches(e Entry, tagSet, notTagSet map[string]bool, containsLowe
 		} else {
 			found := false
 			for _, t := range e.Tags {
-				if tagSet[t] {
+				if tagSet[strings.ToLower(t)] {
 					found = true
 					break
 				}
