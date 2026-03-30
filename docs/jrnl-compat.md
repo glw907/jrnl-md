@@ -104,3 +104,17 @@ If you rely on jrnl's title field in exports or integrations, note that jrnl-md'
 ## Config Key Reference
 
 See [docs/config.md](config.md) for the full jrnl-md config reference.
+
+## Compatibility Test Suite
+
+Every row in the Feature Compatibility table above has a corresponding end-to-end test in
+`e2e/jrnl_compat_test.go`. Tests for implemented features assert correct behavior; tests for
+pending features call `t.Skip` with the pass number.
+
+Run the suite:
+
+```bash
+go test ./e2e/... -run TestCompat -v
+```
+
+Each implementation pass must update this file to convert pending tests to real assertions.
