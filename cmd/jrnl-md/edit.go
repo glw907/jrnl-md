@@ -119,10 +119,14 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 		return fmt.Errorf("saving journal: %w", err)
 	}
 
+	orig := len(entries)
 	n := len(newEntries)
-	if n == 1 {
+	switch {
+	case n == 0 && orig > 0:
+		fmt.Fprintf(os.Stderr, "%d entries deleted.\n", orig)
+	case n == 1:
 		fmt.Fprintf(os.Stderr, "1 entry edited.\n")
-	} else {
+	default:
 		fmt.Fprintf(os.Stderr, "%d entries edited.\n", n)
 	}
 
