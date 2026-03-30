@@ -73,13 +73,13 @@ func serializeEntries(entries []journal.Entry, dateFmt, timeFmt string) string {
 // editFiltered serializes entries to a temp file, opens the editor, parses
 // the result, replaces the original entries in the journal, and saves.
 func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath string, passphrase string, entries []journal.Entry) error {
-	if cfg.General.Editor == "" {
-		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
-	}
-
 	if len(entries) == 0 {
 		fmt.Fprintln(os.Stderr, "No entries to edit.")
 		return nil
+	}
+
+	if cfg.General.Editor == "" {
+		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
 	}
 
 	content := serializeEntries(entries, cfg.Format.Date, cfg.Format.Time)
