@@ -115,6 +115,13 @@ func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs
 			if indent != "" {
 				body = display.IndentBody(body, indent)
 			}
+			if cfg.General.Highlight {
+				tagColorFn := display.ColorFunc(cfg.Colors.Tags)
+				if tagColorFn == nil {
+					tagColorFn = display.ColorFunc("cyan")
+				}
+				body = display.HighlightTags(body, cfg.Format.TagSymbols, tagColorFn)
+			}
 			fmt.Println(bodyColor(body))
 		}
 	}
