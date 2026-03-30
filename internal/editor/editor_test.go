@@ -8,6 +8,43 @@ import (
 	"time"
 )
 
+func TestPrepareEncryptedNew(t *testing.T) {
+	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
+	content, lineCount := prepareEncryptedContent("", date, "2006-01-02", "03:04 PM", "")
+
+	if !strings.HasPrefix(content, "# 2026-03-29 Sunday") {
+		t.Errorf("missing day heading, got: %q", content[:40])
+	}
+	if !strings.Contains(content, "## [02:30 PM]") {
+		t.Errorf("missing entry heading")
+	}
+	if lineCount < 4 {
+		t.Errorf("expected at least 4 lines, got %d", lineCount)
+	}
+}
+
+func TestPrepareEncryptedExisting(t *testing.T) {
+	existing := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nMorning entry.\n"
+	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
+	content, _ := prepareEncryptedContent(existing, date, "2006-01-02", "03:04 PM", "")
+
+	if !strings.Contains(content, "Morning entry.") {
+		t.Error("lost existing content")
+	}
+	if !strings.Contains(content, "## [02:30 PM]") {
+		t.Error("missing new entry heading")
+	}
+}
+
+func TestPrepareEncryptedWithTemplate(t *testing.T) {
+	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
+	content, _ := prepareEncryptedContent("", date, "2006-01-02", "03:04 PM", "## Mood\n")
+
+	if !strings.Contains(content, "## Mood") {
+		t.Error("missing template content")
+	}
+}
+
 func TestPrepareDayFileNew(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "29.md")
