@@ -10,15 +10,9 @@ var blankBeforeHeadingRe = regexp.MustCompile(`\n{3,}(## \[)`)
 // CleanupDayContent applies light normalization to a day file's content:
 //   - strips trailing empty entry headings (## [time] with no body)
 //   - normalizes to exactly one blank line before ## headings
-//   - trims trailing whitespace from each line
 //   - ensures a single trailing newline
 func CleanupDayContent(text string) string {
 	lines := strings.Split(text, "\n")
-
-	// Trim trailing whitespace from each line
-	for i := range lines {
-		lines[i] = strings.TrimRight(lines[i], " \t")
-	}
 
 	// Strip trailing empty entry headings:
 	// A ## [time] heading is "empty" if everything after it is blank.

@@ -115,3 +115,66 @@ func TestEditNoEditor(t *testing.T) {
 		t.Errorf("expected 'no editor configured' in stderr, got: %q", stderr)
 	}
 }
+
+func TestEditEmptyBufferAborts(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Write a day file for today with a known entry
+	today := time.Now()
+	dayContent := fmt.Sprintf("# %s %s\n\n## [09:00 AM]\n\nFirst @work entry.\n",
+		today.Format("2006-01-02"), today.Format("Monday"))
+	writeDayFile(t, env.journalDir, today, dayContent)
+
+	// Mock editor that empties the file
+	script := "#!/bin/bash\nFILE=\"${@: -1}\"\necho -n '' > \"$FILE\"\n"
+	editorPath := filepath.Join(env.dir, "empty-editor.sh")
+	if err := os.WriteFile(editorPath, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	patchConfigEditor(t, env.configPath, editorPath)
+
+	// Bare invocation (no args, no flags) opens today's day file directly (editDayFilePlain)
+	_, stderr := run(t, env)
+
+	if !strings.Contains(stderr, "no changes made") && !strings.Contains(stderr, "No entries found") {
+		t.Errorf("expected abort message, got: %q", stderr)
+	}
+
+	// Verify entries are still intact (backup restored)
+	content := dayFileContent(t, env.journalDir, today)
+	if !strings.Contains(content, "First @work entry") {
+		t.Errorf("entries should be preserved after empty buffer abort, got:\n%s", content)
+	}
+}
+
+func TestEditDirectCleansUpEmptyHeading(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Write a day file with one entry
+	today := time.Now()
+	dayContent := fmt.Sprintf("# %s %s\n\n## [09:00 AM]\n\nExisting entry.\n",
+		today.Format("2006-01-02"), today.Format("Monday"))
+	writeDayFile(t, env.journalDir, today, dayContent)
+
+	// Mock editor that does nothing (leaves the appended empty heading as-is)
+	script := "#!/bin/bash\n# no-op editor\n"
+	editorPath := filepath.Join(env.dir, "noop-editor.sh")
+	if err := os.WriteFile(editorPath, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	patchConfigEditor(t, env.configPath, editorPath)
+
+	// Bare edit — should append a heading, then cleanup should strip it
+	run(t, env)
+
+	content := dayFileContent(t, env.journalDir, today)
+	if !strings.Contains(content, "Existing entry.") {
+		t.Errorf("existing entry should be preserved, got:\n%s", content)
+	}
+
+	// The appended empty ## heading should have been cleaned up
+	headingCount := strings.Count(content, "## [")
+	if headingCount != 1 {
+		t.Errorf("expected 1 entry heading after cleanup, got %d in:\n%s", headingCount, content)
+	}
+}

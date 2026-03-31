@@ -31,12 +31,11 @@ func TestCleanupDayContent(t *testing.T) {
 		}
 	})
 
-	t.Run("trims trailing whitespace from lines", func(t *testing.T) {
-		input := "# 2026-03-29 Sunday  \n\n## [09:00 AM]  \n\nEntry with spaces.  \n"
+	t.Run("preserves trailing whitespace in body lines", func(t *testing.T) {
+		input := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nMood: \nActivity: \n"
 		got := CleanupDayContent(input)
-		want := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nEntry with spaces.\n"
-		if got != want {
-			t.Errorf("got:\n%q\nwant:\n%q", got, want)
+		if got != input {
+			t.Errorf("should preserve trailing spaces in body:\ngot: %q\nwant: %q", got, input)
 		}
 	})
 
