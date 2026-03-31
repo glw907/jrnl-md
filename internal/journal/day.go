@@ -1,6 +1,7 @@
 package journal
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -11,6 +12,25 @@ var (
 	titleRe = regexp.MustCompile(`^#\s+(\S+)\s+\S+`)
 	entryRe = regexp.MustCompile(`(?m)^##\s+\[([^\]]+)\](\s+\*)?\s*$`)
 )
+
+// ParseError reports a parse failure with location and context.
+type ParseError struct {
+	File     string // file path or description (set by caller)
+	Line     int    // 1-based line number in the source text
+	Value    string // the bad value found
+	Expected string // what was expected
+}
+
+func (e *ParseError) Error() string {
+	loc := e.File
+	if loc == "" {
+		loc = "input"
+	}
+	if e.Value != "" {
+		return fmt.Sprintf("%s: line %d: can't parse %q (expected %s)", loc, e.Line, e.Value, e.Expected)
+	}
+	return fmt.Sprintf("%s: line %d: missing (expected %s)", loc, e.Line, e.Expected)
+}
 
 type day struct {
 	date    time.Time
@@ -38,12 +58,19 @@ func parseDay(text, dateFmt, timeFmt string) (day, error) {
 
 	titleMatch := titleRe.FindStringSubmatch(text)
 	if titleMatch == nil {
-		return d, fmt.Errorf("no day title found")
+		return d, &ParseError{
+			Line:     1,
+			Expected: fmt.Sprintf("day heading like \"# %s %s\"", time.Now().Format(dateFmt), time.Now().Format("Monday")),
+		}
 	}
 
 	dayDate, err := time.ParseInLocation(dateFmt, titleMatch[1], time.Local)
 	if err != nil {
-		return d, fmt.Errorf("parsing day date %q: %w", titleMatch[1], err)
+		return d, &ParseError{
+			Line:     1,
+			Value:    titleMatch[1],
+			Expected: fmt.Sprintf("date in format %q", dateFmt),
+		}
 	}
 	d.date = dayDate
 
@@ -51,12 +78,20 @@ func parseDay(text, dateFmt, timeFmt string) (day, error) {
 
 	for i, match := range matches {
 		timeStr := text[match[2]:match[3]]
-		starred := match[4] != -1
+
+		// Compute 1-based line number for this match
+		lineNum := 1 + strings.Count(text[:match[0]], "\n")
 
 		entryTime, err := time.ParseInLocation(timeFmt, timeStr, time.Local)
 		if err != nil {
-			return d, fmt.Errorf("parsing entry time %q: %w", timeStr, err)
+			return d, &ParseError{
+				Line:     lineNum,
+				Value:    timeStr,
+				Expected: fmt.Sprintf("time in format %q, e.g. \"## [%s]\"", timeFmt, time.Now().Format(timeFmt)),
+			}
 		}
+
+		starred := match[4] != -1
 
 		entryDate := time.Date(
 			dayDate.Year(), dayDate.Month(), dayDate.Day(),
@@ -82,6 +117,13 @@ func parseDay(text, dateFmt, timeFmt string) (day, error) {
 	}
 
 	return d, nil
+}
+
+// ParseDayContent validates day file content by parsing it. Returns any
+// parse error. Exported for use by the editor validation loop.
+func ParseDayContent(text, dateFmt, timeFmt string) error {
+	_, err := parseDay(text, dateFmt, timeFmt)
+	return err
 }
 
 func (d *day) addEntry(body string, starred bool, date time.Time) {
@@ -135,6 +177,11 @@ func ParseMultiDay(text, dateFmt, timeFmt string) ([]Entry, error) {
 		section := strings.Join(lines[start:end], "\n")
 		d, err := parseDay(section, dateFmt, timeFmt)
 		if err != nil {
+			var pe *ParseError
+			if errors.As(err, &pe) {
+				pe.Line += start
+				return nil, pe
+			}
 			return nil, fmt.Errorf("parsing day section at line %d: %w", start+1, err)
 		}
 		entries = append(entries, d.entries...)

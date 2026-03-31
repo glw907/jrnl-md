@@ -1,6 +1,8 @@
 package journal
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,6 +223,72 @@ func TestParseMultiDayEmpty(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Errorf("expected 0 entries on empty input, got %d", len(entries))
+	}
+}
+
+func TestParseDayErrorMissingTitle(t *testing.T) {
+	_, err := parseDay("no heading here\n\n## [09:00 AM]\n\nBody.\n", "2006-01-02", "03:04 PM")
+	if err == nil {
+		t.Fatal("expected error for missing day heading")
+	}
+	var pe *ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *ParseError, got %T: %v", err, err)
+	}
+	if pe.Line != 1 {
+		t.Errorf("line = %d, want 1", pe.Line)
+	}
+	if !strings.Contains(pe.Error(), "expected") {
+		t.Errorf("error should contain expected format: %s", pe.Error())
+	}
+}
+
+func TestParseDayErrorBadTime(t *testing.T) {
+	_, err := parseDay("# 2026-03-29 Sunday\n\n## [3:59pm]\n\nBody.\n", "2006-01-02", "03:04 PM")
+	if err == nil {
+		t.Fatal("expected error for bad time")
+	}
+	var pe *ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *ParseError, got %T: %v", err, err)
+	}
+	if pe.Line == 0 {
+		t.Error("expected non-zero line number")
+	}
+	if pe.Value != "3:59pm" {
+		t.Errorf("value = %q, want %q", pe.Value, "3:59pm")
+	}
+}
+
+func TestParseDayErrorBadDate(t *testing.T) {
+	_, err := parseDay("# not-a-date Sunday\n\n## [09:00 AM]\n\nBody.\n", "2006-01-02", "03:04 PM")
+	if err == nil {
+		t.Fatal("expected error for bad date")
+	}
+	var pe *ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *ParseError, got %T: %v", err, err)
+	}
+	if pe.Line != 1 {
+		t.Errorf("line = %d, want 1", pe.Line)
+	}
+}
+
+func TestParseMultiDayErrorIncludesLineOffset(t *testing.T) {
+	text := "# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nGood entry.\n\n# 2026-03-15 Sunday\n\n## [bad-time]\n\nBad entry.\n"
+	_, err := ParseMultiDay(text, "2006-01-02", "03:04 PM")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var pe *ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *ParseError, got %T: %v", err, err)
+	}
+	// "## [bad-time]" is on line 9 of the full text (1-based).
+	// parseDay sees it as line 3 within the section; section starts at line 6 (0-based index).
+	// Offset: 3 + 6 = 9.
+	if pe.Line != 9 {
+		t.Errorf("line = %d, want 9", pe.Line)
 	}
 }
 
