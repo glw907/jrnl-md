@@ -998,3 +998,168 @@ func TestDayEntries(t *testing.T) {
 		t.Fatalf("expected 0 entries, got %d", len(entries))
 	}
 }
+
+func TestAddEntryImmediate(t *testing.T) {
+	dir := t.TempDir()
+	fj := NewFolderJournal(dir, testOpts)
+
+	date := time.Date(2026, 3, 29, 9, 0, 0, 0, time.Local)
+	if err := fj.AddEntry(date, "Immediate save.", false); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify file exists on disk without calling Save
+	path := filepath.Join(dir, "2026", "03", "29.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("file not written: %v", err)
+	}
+	if !strings.Contains(string(data), "Immediate save.") {
+		t.Errorf("entry not in file: %s", data)
+	}
+
+	// Verify appending to existing day
+	if err := fj.AddEntry(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local), "Second.", false); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "Immediate save.") || !strings.Contains(content, "Second.") {
+		t.Errorf("both entries should be present: %s", content)
+	}
+}
+
+func TestDeleteEntrySingle(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nFirst.\n\n## [10:00 AM]\n\nSecond.\n\n## [11:00 AM]\n\nThird.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	f := &Filter{}
+	entries, err := fj.Entries(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fj.DeleteEntry(entries[1]); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err = fj.Entries(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].Body != "First." || entries[1].Body != "Third." {
+		t.Errorf("wrong entries remained: %q, %q", entries[0].Body, entries[1].Body)
+	}
+}
+
+func TestDeleteEntryRemovesEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nOnly entry.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	f := &Filter{}
+	entries, err := fj.Entries(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fj.DeleteEntry(entries[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "2026", "03", "29.md")
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Error("file should be deleted when last entry is removed")
+	}
+}
+
+func TestUpdateEntry(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nOriginal.\n\n## [10:00 AM]\n\nKeep me.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	f := &Filter{}
+	entries, err := fj.Entries(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("same day update", func(t *testing.T) {
+		updated := entries[0]
+		updated.Body = "Modified."
+		if err := fj.UpdateEntry(entries[0], updated); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := fj.Entries(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result) != 2 {
+			t.Fatalf("expected 2 entries, got %d", len(result))
+		}
+		if result[0].Body != "Modified." {
+			t.Errorf("entry not updated: %q", result[0].Body)
+		}
+		if result[1].Body != "Keep me." {
+			t.Errorf("other entry changed: %q", result[1].Body)
+		}
+	})
+}
+
+func TestUpdateEntryCrossDay(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nMoving.\n\n## [10:00 AM]\n\nStaying.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	f := &Filter{}
+	entries, err := fj.Entries(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newDate := time.Date(2026, 3, 28, 15, 0, 0, 0, time.Local)
+	updated := entries[0]
+	updated.Date = newDate
+
+	if err := fj.UpdateEntry(entries[0], updated); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := fj.Entries(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(result))
+	}
+	if result[0].Date.Day() != 28 || result[0].Body != "Moving." {
+		t.Errorf("moved entry wrong: day=%d body=%q", result[0].Date.Day(), result[0].Body)
+	}
+	if result[1].Date.Day() != 29 || result[1].Body != "Staying." {
+		t.Errorf("stayed entry wrong: day=%d body=%q", result[1].Date.Day(), result[1].Body)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "2026", "03", "28.md")); err != nil {
+		t.Errorf("new day file missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "2026", "03", "29.md")); err != nil {
+		t.Errorf("original day file missing: %v", err)
+	}
+}

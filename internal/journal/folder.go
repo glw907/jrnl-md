@@ -248,19 +248,66 @@ func (fj *FolderJournal) AllEntries() []Entry {
 	return entries
 }
 
-// AddEntry adds a new entry to the appropriate day, creating it if needed.
-func (fj *FolderJournal) AddEntry(date time.Time, body string, starred bool) {
-	key := dateKeyFromTime(date)
-	d, ok := fj.days[key]
-	if !ok {
-		d = &day{
-			date: time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local),
-		}
-		fj.days[key] = d
+// AddEntry adds a new entry to the given date's day file and saves immediately.
+func (fj *FolderJournal) AddEntry(date time.Time, body string, starred bool) error {
+	d, err := fj.loadDayFile(date)
+	if err != nil {
+		return err
 	}
 
 	d.addEntry(body, starred, date)
 	d.entries[len(d.entries)-1].Tags = fj.tagParser.Parse(body)
+
+	return fj.writeDay(d)
+}
+
+// DeleteEntry removes a single entry (matched by timestamp and body) from
+// its day file and saves immediately. Deletes the file if no entries remain.
+func (fj *FolderJournal) DeleteEntry(e Entry) error {
+	d, err := fj.loadDayFile(e.Date)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	var kept []Entry
+	for _, existing := range d.entries {
+		if !found && existing.Date.Equal(e.Date) && existing.Body == e.Body {
+			found = true
+			continue
+		}
+		kept = append(kept, existing)
+	}
+	d.entries = kept
+
+	return fj.writeDay(d)
+}
+
+// UpdateEntry replaces old with updated in the day file. If the entry moves to a
+// different calendar day, it is removed from the old day and added to the new.
+func (fj *FolderJournal) UpdateEntry(old, updated Entry) error {
+	oldKey := dateKeyFromTime(old.Date)
+	newKey := dateKeyFromTime(updated.Date)
+
+	if oldKey == newKey {
+		d, err := fj.loadDayFile(old.Date)
+		if err != nil {
+			return err
+		}
+		for i, e := range d.entries {
+			if e.Date.Equal(old.Date) && e.Body == old.Body {
+				d.entries[i] = updated
+				d.entries[i].Tags = fj.tagParser.Parse(updated.Body)
+				break
+			}
+		}
+		return fj.writeDay(d)
+	}
+
+	if err := fj.DeleteEntry(old); err != nil {
+		return err
+	}
+	return fj.AddEntry(updated.Date, updated.Body, updated.Starred)
 }
 
 // DayFilePath returns the expected file path for a given date.
@@ -316,11 +363,22 @@ func (fj *FolderJournal) DeleteEntries(entries []Entry) {
 	}
 }
 
-// ReplaceEntries removes old entries and adds new entries to the journal.
+// ReplaceEntries removes old entries and adds new entries to the in-memory
+// journal. Call Save to persist changes.
 func (fj *FolderJournal) ReplaceEntries(old []Entry, newEntries []Entry) {
 	fj.DeleteEntries(old)
 	for _, e := range newEntries {
-		fj.AddEntry(e.Date, e.Body, e.Starred)
+		key := dateKeyFromTime(e.Date)
+		d, ok := fj.days[key]
+		if !ok {
+			d = &day{
+				date: time.Date(e.Date.Year(), e.Date.Month(), e.Date.Day(), 0, 0, 0, 0, time.Local),
+			}
+			fj.days[key] = d
+		}
+		d.addEntry(e.Body, e.Starred, e.Date)
+		d.entries[len(d.entries)-1].Tags = fj.tagParser.Parse(e.Body)
+		d.modified = true
 	}
 }
 
@@ -626,23 +684,30 @@ func (fj *FolderJournal) DayEntries(date time.Time) ([]Entry, error) {
 }
 
 // ImportEntry adds e to the journal if no entry with the same timestamp exists.
-// Returns true if the entry was added, false if a duplicate was found (skipped).
-// LoadDay is called automatically if the target day is not yet loaded.
+// Returns true if added, false if duplicate. Saves immediately.
 func (fj *FolderJournal) ImportEntry(e Entry) (bool, error) {
+	d, err := fj.loadDayFile(e.Date)
+	if err != nil {
+		return false, err
+	}
+
+	for _, existing := range d.entries {
+		if existing.Date.Equal(e.Date) {
+			return false, nil
+		}
+	}
+
+	d.addEntry(e.Body, e.Starred, e.Date)
+	d.entries[len(d.entries)-1].Tags = fj.tagParser.Parse(e.Body)
+
+	if err := fj.writeDay(d); err != nil {
+		return false, err
+	}
+
+	// Keep fj.days in sync so AllEntries() reflects the import.
 	key := dateKeyFromTime(e.Date)
-	if _, ok := fj.days[key]; !ok {
-		if err := fj.LoadDay(e.Date); err != nil {
-			return false, err
-		}
-	}
-	if d, ok := fj.days[key]; ok {
-		for _, existing := range d.entries {
-			if existing.Date.Equal(e.Date) {
-				return false, nil
-			}
-		}
-	}
-	fj.AddEntry(e.Date, e.Body, e.Starred)
+	fj.days[key] = d
+
 	return true, nil
 }
 
