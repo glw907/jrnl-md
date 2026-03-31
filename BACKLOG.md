@@ -48,18 +48,6 @@
 
 ## Medium
 
-- [ ] **#9** Use LoadDay instead of Load for single-day operations `#improvement` `#journal` *(2026-03-30)*
-  `--delete --on DATE`, `--edit --on DATE`, `--change-time --on DATE` all call `fj.Load()`
-  which reads every day file into memory, then filters down to the target entries. When a
-  single date is known from the filter flags, use `LoadDay` instead — load one file, operate
-  on it, save it. `root.go:196-218`
-- [ ] **#8** Replace ReplaceEntries delete+re-add with direct day-level update `#improvement` `#journal` *(2026-03-30)*
-  `ReplaceEntries` deletes all matching entries by scanning every loaded day, then re-adds
-  new entries via `AddEntry` which re-partitions them into day buckets. Since each entry's
-  `Date` maps to exactly one day file, add an in-place `UpdateEntry` or patch the day's
-  entry list directly. Same issue in `DeleteEntries` and `ChangeEntryTimes` — they scan all
-  days when they could route by `dateKeyFromTime(e.Date)`.
-  `internal/journal/folder.go:292-377`
 - [ ] **#4** Skip malformed day files during Load instead of aborting `#bug` `#journal` *(2026-03-30)*
   A single file with a bad date or time heading causes `Load()` to abort — the entire journal
   becomes unreadable. Spec: log a warning to stderr with the file path and specific parse
@@ -79,4 +67,8 @@
 
 ## Done
 
+- [x] **#9** Use LoadDay instead of Load for single-day operations `#improvement` `#journal` *(2026-03-30)*
+  Resolved by Pass 6: `Entries()` uses directory-driven file selection via `listDayFiles`.
+- [x] **#8** Replace ReplaceEntries delete+re-add with direct day-level update `#improvement` `#journal` *(2026-03-30)*
+  Resolved by Pass 6: `ReplaceEntries` removed; `DeleteEntry`/`UpdateEntry`/`AddEntry` operate per day file.
 - [x] **#0** `--format pretty/short/tags/dates` display mode aliases `#feature` `#cli` *(2026-03-30)*
