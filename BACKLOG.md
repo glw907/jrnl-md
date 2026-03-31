@@ -11,7 +11,7 @@
   For partial deletions (some entries removed), jrnl accepts silently and prints a post-hoc
   count — match that too. `cmd/jrnl-md/edit.go:73-78`, `internal/journal/day.go:127-129`
 - [ ] **#5** Validate and normalize after --edit `#improvement` `#edit` *(2026-03-30)*
-  Both --edit paths should validate and normalize after the editor exits. Spec:
+  All three --edit paths should validate and normalize after the editor exits. Spec:
   **Filtered --edit** (temp file): if `ParseMultiDay` returns a parse error, show the
   specific error to stderr and offer to re-open the editor (the temp file still exists).
   If empty result, abort with warning per #6. If fewer entries, accept and print count
@@ -21,6 +21,11 @@
   spacing. If it fails, show the parse error and offer to re-open. If the user declines,
   restore the backup. Never silently accept broken structure — that defers the problem to
   the next `Load()`.
+  **Encrypted --edit** (decrypt → temp file → re-encrypt): same pattern as direct --edit.
+  After the editor exits, parse the edited content before re-encrypting. If it fails, show
+  the error and offer to re-open. If the user declines, discard edits (the original encrypted
+  file is untouched since `LaunchEncrypted` only writes after success).
+  `internal/editor/editor.go:143-178`
   **Error messages must be actionable.** Don't just say what failed — say what was expected.
   Examples: `line 1: missing day heading (expected "# 2026-03-30 Sunday")`,
   `line 5: can't parse time "3:59pm" (expected format "03:04 PM", e.g. "## [03:59 PM]")`,
