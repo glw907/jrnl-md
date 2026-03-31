@@ -1,6 +1,7 @@
 package journal
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -737,4 +738,79 @@ func TestImportEntry_MultipleEntries(t *testing.T) {
 	if len(entries) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(entries))
 	}
+}
+
+func TestListDayFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	dates := []time.Time{
+		time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local),
+		time.Date(2026, 3, 20, 0, 0, 0, 0, time.Local),
+		time.Date(2026, 4, 5, 0, 0, 0, 0, time.Local),
+	}
+	for _, d := range dates {
+		content := fmt.Sprintf("# %s %s\n\n## [09:00 AM]\n\nEntry.\n",
+			d.Format("2006-01-02"), d.Format("Monday"))
+		writeDayFile(t, dir, d, content, "md")
+	}
+
+	fj := NewFolderJournal(dir, testOpts)
+
+	t.Run("no date range returns all", func(t *testing.T) {
+		files, err := fj.listDayFiles(nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 3 {
+			t.Fatalf("expected 3 files, got %d", len(files))
+		}
+		if files[0].date.Day() != 15 || files[2].date.Month() != 4 {
+			t.Errorf("wrong order: %v", files)
+		}
+	})
+
+	t.Run("start date filters earlier files", func(t *testing.T) {
+		start := time.Date(2026, 3, 18, 0, 0, 0, 0, time.Local)
+		files, err := fj.listDayFiles(&start, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 2 {
+			t.Fatalf("expected 2 files, got %d", len(files))
+		}
+	})
+
+	t.Run("end date filters later files", func(t *testing.T) {
+		end := time.Date(2026, 3, 31, 23, 59, 59, 0, time.Local)
+		files, err := fj.listDayFiles(nil, &end)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 2 {
+			t.Fatalf("expected 2 files, got %d", len(files))
+		}
+	})
+
+	t.Run("exact date", func(t *testing.T) {
+		start := time.Date(2026, 3, 20, 0, 0, 0, 0, time.Local)
+		end := time.Date(2026, 3, 20, 23, 59, 59, 0, time.Local)
+		files, err := fj.listDayFiles(&start, &end)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 1 {
+			t.Fatalf("expected 1 file, got %d", len(files))
+		}
+	})
+
+	t.Run("missing directory returns empty", func(t *testing.T) {
+		fj2 := NewFolderJournal(filepath.Join(dir, "nonexistent"), testOpts)
+		files, err := fj2.listDayFiles(nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 0 {
+			t.Fatalf("expected 0 files, got %d", len(files))
+		}
+	})
 }

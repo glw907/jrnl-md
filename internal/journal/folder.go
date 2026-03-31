@@ -389,6 +389,119 @@ func (fj *FolderJournal) MarkAllModified() {
 	}
 }
 
+// dayFileInfo holds a resolved path and parsed date for a single day file.
+type dayFileInfo struct {
+	path string
+	date time.Time
+}
+
+// listDayFiles walks the YYYY/MM/ directory structure and returns a sorted
+// slice of day files whose dates fall within [start, end] (inclusive). Either
+// bound may be nil to indicate no limit.
+func (fj *FolderJournal) listDayFiles(start, end *time.Time) ([]dayFileInfo, error) {
+	plainExt := "." + fj.opts.FileExt
+	encExt := plainExt + ".age"
+
+	yearDirs, err := os.ReadDir(fj.path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var files []dayFileInfo
+
+	for _, yd := range yearDirs {
+		if !yd.IsDir() {
+			continue
+		}
+		year, err := strconv.Atoi(yd.Name())
+		if err != nil || year < 1000 || year > 9999 {
+			continue
+		}
+		if start != nil && year < start.Year() {
+			continue
+		}
+		if end != nil && year > end.Year() {
+			continue
+		}
+
+		monthDirs, err := os.ReadDir(filepath.Join(fj.path, yd.Name()))
+		if err != nil {
+			continue
+		}
+
+		for _, md := range monthDirs {
+			if !md.IsDir() {
+				continue
+			}
+			month, err := strconv.Atoi(md.Name())
+			if err != nil || month < 1 || month > 12 {
+				continue
+			}
+			if start != nil && year == start.Year() && time.Month(month) < start.Month() {
+				continue
+			}
+			if end != nil && year == end.Year() && time.Month(month) > end.Month() {
+				continue
+			}
+
+			dayEntries, err := os.ReadDir(filepath.Join(fj.path, yd.Name(), md.Name()))
+			if err != nil {
+				continue
+			}
+
+			for _, df := range dayEntries {
+				if df.IsDir() {
+					continue
+				}
+
+				name := df.Name()
+				encrypted := strings.HasSuffix(name, encExt)
+				if !encrypted && !strings.HasSuffix(name, plainExt) {
+					continue
+				}
+
+				stem := name
+				if encrypted {
+					stem = strings.TrimSuffix(stem, encExt)
+				} else {
+					stem = strings.TrimSuffix(stem, plainExt)
+				}
+				dayNum, err := strconv.Atoi(stem)
+				if err != nil || dayNum < 1 || dayNum > 31 {
+					continue
+				}
+
+				date := time.Date(year, time.Month(month), dayNum, 0, 0, 0, 0, time.Local)
+
+				if start != nil {
+					startDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+					if date.Before(startDay) {
+						continue
+					}
+				}
+				if end != nil {
+					endDay := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
+					if date.After(endDay) {
+						continue
+					}
+				}
+
+				path := filepath.Join(fj.path, yd.Name(), md.Name(), name)
+				files = append(files, dayFileInfo{path: path, date: date})
+			}
+		}
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].date.Before(files[j].date)
+	})
+
+	return files, nil
+}
+
 // ImportEntry adds e to the journal if no entry with the same timestamp exists.
 // Returns true if the entry was added, false if a duplicate was found (skipped).
 // LoadDay is called automatically if the target day is not yet loaded.
