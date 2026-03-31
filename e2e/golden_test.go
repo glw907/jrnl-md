@@ -76,6 +76,22 @@ var goldenTests = []goldenTest{
 	{slug: "export-json-tag", mdArgs: []string{"@work", "--format", "json", "-n", "99"}, normalize: normalizeJSON},
 	{slug: "export-txt-from", mdArgs: []string{"--from", "2026-03-10", "--format", "txt", "-n", "99"}, jrnlArgs: []string{"-from", "2026-03-10", "--format", "txt", "-n", "99"}, normalize: normalizeTxt},
 	{slug: "export-json-starred", mdArgs: []string{"--starred", "--format", "json", "-n", "99"}, jrnlArgs: []string{"-starred", "--format", "json", "-n", "99"}, normalize: normalizeJSON},
+	// --- Config Variations ---
+	{slug: "linewrap-40", mdArgs: []string{"-n", "99"}, normalize: normalizeDefault, seed: seedGoldenLinewrap40},
+	{slug: "highlight-off", mdArgs: []string{"-n", "99"}, normalize: normalizeDefault},
+	{slug: "default-hour-minute", mdArgs: []string{"-n", "99"}, normalize: normalizeDefault, seed: seedGoldenDefaultHourMinute},
+	{slug: "tag-symbols-hash", mdArgs: []string{"--tags"}, normalize: normalizeTags, seed: seedGoldenHashTags},
+	// --- ANSI Color Tests ---
+	{slug: "color-tags-cyan", mdArgs: []string{"-n", "99"}, ansi: true, seed: seedGoldenANSI},
+	{slug: "color-tags-list", mdArgs: []string{"--tags"}, ansi: true, seed: seedGoldenANSI},
+	// --- Multiple Journals ---
+	{slug: "multi-list", mdArgs: []string{"--list"}, normalize: normalizeList, seed: seedGoldenMulti},
+	{slug: "multi-read", mdArgs: []string{"work:", "-n", "99"}, jrnlArgs: []string{"work:", "-n", "99"}, normalize: normalizeDefault, seed: seedGoldenMulti},
+	{slug: "multi-tags", mdArgs: []string{"work:", "--tags"}, jrnlArgs: []string{"work:", "--tags"}, normalize: normalizeTags, seed: seedGoldenMulti},
+	// --- Edge Cases ---
+	{slug: "empty-journal", mdArgs: []string{"-n", "99"}, seed: seedGoldenEmpty},
+	{slug: "single-entry", mdArgs: []string{"-n", "99"}, normalize: normalizeDefault, seed: seedGoldenSingle},
+	{slug: "no-matches", mdArgs: []string{"--contains", "nonexistent", "-n", "99"}, jrnlArgs: []string{"-contains", "nonexistent", "-n", "99"}},
 }
 
 func TestGolden(t *testing.T) {

@@ -533,6 +533,138 @@ func normalizeTags(s string) string {
 }
 
 // ---------------------------------------------------------------------------
+// Config variation seed helpers
+// ---------------------------------------------------------------------------
+
+// seedGoldenLinewrap40 seeds with linewrap: 40 in both configs.
+func seedGoldenLinewrap40(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	mdConfig := strings.Replace(goldenJrnlMdConfigHeader, "linewrap = 0", "linewrap = 40", 1)
+	jrnlCfgFn := func(journalPath string) string {
+		return strings.Replace(goldenJrnlConfig(journalPath), "linewrap: 0", "linewrap: 40", 1)
+	}
+	return seedGoldenWithEntries(t, goldenEntries, mdConfig, jrnlCfgFn)
+}
+
+// seedGoldenDefaultHourMinute seeds with default_hour 14 and default_minute 30,
+// with one entry already at 14:30.
+func seedGoldenDefaultHourMinute(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	entries := []goldenEntry{
+		{"2026-03-01", "14:30", "Entry at default time.", false},
+	}
+	jrnlCfgFn := func(journalPath string) string {
+		cfg := goldenJrnlConfig(journalPath)
+		cfg = strings.Replace(cfg, "default_hour: 9", "default_hour: 14", 1)
+		cfg = strings.Replace(cfg, "default_minute: 0", "default_minute: 30", 1)
+		return cfg
+	}
+	return seedGoldenWithEntries(t, entries, goldenJrnlMdConfigHeader, jrnlCfgFn)
+}
+
+// seedGoldenHashTags seeds with '#' as the tag symbol in both configs.
+func seedGoldenHashTags(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	entries := []goldenEntry{
+		{"2026-03-01", "09:00", "First #work entry.", false},
+		{"2026-03-01", "14:00", "Starred #personal moment.", true},
+		{"2026-03-05", "10:30", "A #personal reflection about #life.", false},
+	}
+	mdConfig := strings.Replace(goldenJrnlMdConfigHeader, `tag_symbols = "@"`, `tag_symbols = "#"`, 1)
+	jrnlCfgFn := func(journalPath string) string {
+		return strings.Replace(goldenJrnlConfig(journalPath), "tagsymbols: '@'", "tagsymbols: '#'", 1)
+	}
+	return seedGoldenWithEntries(t, entries, mdConfig, jrnlCfgFn)
+}
+
+// seedGoldenANSI seeds with highlight: true and colors.tags: cyan.
+func seedGoldenANSI(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	mdConfig := strings.Replace(
+		strings.Replace(goldenJrnlMdConfigHeader, "highlight = false", "highlight = true", 1),
+		`tags = "none"`, `tags = "cyan"`, 1)
+	jrnlCfgFn := func(journalPath string) string {
+		cfg := goldenJrnlConfig(journalPath)
+		cfg = strings.Replace(cfg, "highlight: false", "highlight: true", 1)
+		return strings.Replace(cfg, "tags: none", "tags: cyan", 1)
+	}
+	return seedGoldenWithEntries(t, goldenEntries, mdConfig, jrnlCfgFn)
+}
+
+// seedGoldenMulti seeds two journals (default + work) in both jrnl-md and jrnl.
+func seedGoldenMulti(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	dir := t.TempDir()
+
+	// jrnl-md: two journal directories
+	defaultDir := filepath.Join(dir, "md-default")
+	workDir := filepath.Join(dir, "md-work")
+	for _, d := range []string{defaultDir, workDir} {
+		if err := os.MkdirAll(filepath.Join(d, "2026", "03"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	os.WriteFile(filepath.Join(defaultDir, "2026", "03", "01.md"),
+		[]byte("# 2026-03-01 Sunday\n\n## [09:00]\n\nDefault journal entry.\n"), 0644)
+	os.WriteFile(filepath.Join(workDir, "2026", "03", "01.md"),
+		[]byte("# 2026-03-01 Sunday\n\n## [09:00]\n\nWork @project entry.\n\n## [14:00]\n\nWork @meeting notes.\n"), 0644)
+
+	mdConfigPath := filepath.Join(dir, "config.toml")
+	mdConfig := goldenJrnlMdConfigHeader +
+		fmt.Sprintf("[journals.default]\npath = %q\n\n[journals.work]\npath = %q\n", defaultDir, workDir)
+	os.WriteFile(mdConfigPath, []byte(mdConfig), 0644)
+	mdEnv := testEnv{dir: dir, configPath: mdConfigPath, journalDir: defaultDir}
+
+	// jrnl: two journal files
+	jrnlDir := t.TempDir()
+	defaultPath := filepath.Join(jrnlDir, "default.txt")
+	workPath := filepath.Join(jrnlDir, "work.txt")
+	os.WriteFile(defaultPath, []byte("[2026-03-01 09:00] Default journal entry.\n"), 0644)
+	os.WriteFile(workPath, []byte("[2026-03-01 09:00] Work @project entry.\n[2026-03-01 14:00] Work @meeting notes.\n"), 0644)
+
+	jrnlConfigPath := filepath.Join(jrnlDir, "jrnl.yaml")
+	jrnlConfig := fmt.Sprintf(`colors:
+  body: none
+  date: none
+  tags: none
+  title: none
+default_hour: 9
+default_minute: 0
+editor: ''
+encrypt: false
+highlight: false
+indent_character: ''
+journals:
+  default: %s
+  work: %s
+linewrap: 0
+tagsymbols: '@'
+template: false
+timeformat: '%%Y-%%m-%%d %%H:%%M'
+version: v4.3
+`, defaultPath, workPath)
+	os.WriteFile(jrnlConfigPath, []byte(jrnlConfig), 0644)
+
+	oracle := jrnlOracle{configPath: jrnlConfigPath}
+	return mdEnv, oracle
+}
+
+// seedGoldenEmpty seeds an empty journal.
+func seedGoldenEmpty(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	return seedGoldenWithEntries(t, nil, goldenJrnlMdConfigHeader, goldenJrnlConfig)
+}
+
+// seedGoldenSingle seeds a journal with a single entry.
+func seedGoldenSingle(t *testing.T) (testEnv, jrnlOracle) {
+	t.Helper()
+	entries := []goldenEntry{
+		{"2026-03-01", "09:00", "Only entry in the journal.", false},
+	}
+	return seedGoldenWithEntries(t, entries, goldenJrnlMdConfigHeader, goldenJrnlConfig)
+}
+
+// ---------------------------------------------------------------------------
 // Diff helper
 // ---------------------------------------------------------------------------
 
