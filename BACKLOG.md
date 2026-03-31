@@ -10,14 +10,18 @@
   entries? This seems a bit drastic, so the operation was cancelled." Match that behavior.
   For partial deletions (some entries removed), jrnl accepts silently and prints a post-hoc
   count — match that too. `cmd/jrnl-md/edit.go:73-78`, `internal/journal/day.go:127-129`
-- [ ] **#5** Normalize spacing in day files after direct --edit `#improvement` `#edit` *(2026-03-30)*
-  The direct `--edit` path (no filter flags) edits the raw day file in place with no re-parse.
-  If the user introduces extra blank lines, trailing whitespace, or missing blank lines around
-  `## [time]` headings, the damage persists. The filtered `--edit` path already normalizes via
-  its parse→format round-trip. Add a post-edit normalize step to the direct path: re-read the
-  file, parse it, and re-serialize with `day.Format()` to enforce canonical spacing. This is
-  safe because the parser already `TrimSpace`s bodies. `cmd/jrnl-md/edit.go:45-51`,
-  `internal/journal/day.go:22-34`
+- [ ] **#5** Validate and normalize after --edit `#improvement` `#edit` *(2026-03-30)*
+  Both --edit paths should validate and normalize after the editor exits. Spec:
+  **Filtered --edit** (temp file): if `ParseMultiDay` returns a parse error, show the
+  specific error to stderr and offer to re-open the editor (the temp file still exists).
+  If empty result, abort with warning per #6. If fewer entries, accept and print count
+  (already works).
+  **Direct --edit** (raw day file): back up the pre-edit content. After the editor exits,
+  re-parse with `parseDay`. If it parses, re-serialize with `day.Format()` to normalize
+  spacing. If it fails, show the parse error and offer to re-open. If the user declines,
+  restore the backup. Never silently accept broken structure — that defers the problem to
+  the next `Load()`.
+  Key locations: `cmd/jrnl-md/edit.go`, `internal/journal/day.go:22-34`
 - [ ] **#1** Compat test suite audit `#improvement` `#docs` *(2026-03-30)*
   Cross-reference every feature in `docs/jrnl-compat.md` against `e2e/jrnl_compat_test.go`.
   Confirm each has a real assertion. Add `TestCompat_*` tests for gaps. Known gaps:
@@ -28,9 +32,11 @@
 
 - [ ] **#4** Skip malformed day files during Load instead of aborting `#bug` `#journal` *(2026-03-30)*
   A single file with a bad date or time heading causes `Load()` to abort — the entire journal
-  becomes unreadable. Log a warning and skip unparseable files instead. jrnl's folder backend
-  has the same crash behavior (arguably a bug), so this is a reasonable deviation to document
-  in `docs/jrnl-compat.md`. `internal/journal/folder.go:120-123`
+  becomes unreadable. Spec: log a warning to stderr with the file path and specific parse
+  error, skip the file, continue loading everything else. The user can then go fix that one
+  file manually. jrnl's folder backend has the same crash behavior (arguably a bug), so this
+  is a reasonable deviation to document in `docs/jrnl-compat.md`.
+  `internal/journal/folder.go:120-123`
 
 ## Low
 
