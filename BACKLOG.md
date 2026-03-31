@@ -21,6 +21,11 @@
   spacing. If it fails, show the parse error and offer to re-open. If the user declines,
   restore the backup. Never silently accept broken structure — that defers the problem to
   the next `Load()`.
+  **Error messages must be actionable.** Don't just say what failed — say what was expected.
+  Examples: `line 1: missing day heading (expected "# 2026-03-30 Sunday")`,
+  `line 5: can't parse time "3:59pm" (expected format "03:04 PM", e.g. "## [03:59 PM]")`,
+  `line 1: missing day heading (expected "# YYYY-MM-DD Weekday")`. Include the line number,
+  the bad value, and the expected format so the user can fix it without guessing.
   Key locations: `cmd/jrnl-md/edit.go`, `internal/journal/day.go:22-34`
 - [ ] **#1** Compat test suite audit `#improvement` `#docs` *(2026-03-30)*
   Cross-reference every feature in `docs/jrnl-compat.md` against `e2e/jrnl_compat_test.go`.
@@ -33,10 +38,12 @@
 - [ ] **#4** Skip malformed day files during Load instead of aborting `#bug` `#journal` *(2026-03-30)*
   A single file with a bad date or time heading causes `Load()` to abort — the entire journal
   becomes unreadable. Spec: log a warning to stderr with the file path and specific parse
-  error, skip the file, continue loading everything else. The user can then go fix that one
-  file manually. jrnl's folder backend has the same crash behavior (arguably a bug), so this
-  is a reasonable deviation to document in `docs/jrnl-compat.md`.
-  `internal/journal/folder.go:120-123`
+  error, skip the file, continue loading everything else. Error messages must be actionable —
+  include the file path, line number, bad value, and expected format, e.g.:
+  `warning: 2026/03/30.md: line 3: can't parse time "3:59pm" (expected "03:04 PM") — skipping file`.
+  The user can then go fix that one file manually. jrnl's folder backend has the same crash
+  behavior (arguably a bug), so this is a reasonable deviation to document in
+  `docs/jrnl-compat.md`. `internal/journal/folder.go:120-123`
 
 ## Low
 
