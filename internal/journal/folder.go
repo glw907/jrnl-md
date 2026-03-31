@@ -66,23 +66,7 @@ func (fj *FolderJournal) AddEntry(date time.Time, body string, starred bool) err
 // DeleteEntry removes a single entry (matched by timestamp and body) from
 // its day file and saves immediately. Deletes the file if no entries remain.
 func (fj *FolderJournal) DeleteEntry(e Entry) error {
-	d, err := fj.loadDayFile(e.Date)
-	if err != nil {
-		return err
-	}
-
-	found := false
-	var kept []Entry
-	for _, existing := range d.entries {
-		if !found && existing.Date.Equal(e.Date) && existing.Body == e.Body {
-			found = true
-			continue
-		}
-		kept = append(kept, existing)
-	}
-	d.entries = kept
-
-	return fj.writeDay(d)
+	return fj.DeleteEntries([]Entry{e})
 }
 
 // UpdateEntry replaces old with updated in the day file. If the entry moves to a
@@ -124,23 +108,36 @@ func groupByDay(entries []Entry) map[dateKey][]Entry {
 // DeleteEntries removes multiple entries, grouped by day file for efficiency.
 // Each affected day file is loaded and written at most once.
 func (fj *FolderJournal) DeleteEntries(entries []Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
 	for _, batch := range groupByDay(entries) {
 		d, err := fj.loadDayFile(batch[0].Date)
 		if err != nil {
 			return err
 		}
-		for _, target := range batch {
-			found := false
-			var kept []Entry
-			for _, existing := range d.entries {
-				if !found && existing.Date.Equal(target.Date) && existing.Body == target.Body {
-					found = true
-					continue
-				}
-				kept = append(kept, existing)
-			}
-			d.entries = kept
+
+		// Build match counts: how many copies of each (date,body) to remove.
+		type matchKey struct {
+			unix int64
+			body string
 		}
+		counts := make(map[matchKey]int, len(batch))
+		for _, target := range batch {
+			counts[matchKey{target.Date.Unix(), target.Body}]++
+		}
+
+		kept := d.entries[:0]
+		for _, existing := range d.entries {
+			mk := matchKey{existing.Date.Unix(), existing.Body}
+			if counts[mk] > 0 {
+				counts[mk]--
+				continue
+			}
+			kept = append(kept, existing)
+		}
+		d.entries = kept
+
 		if err := fj.writeDay(d); err != nil {
 			return err
 		}
@@ -151,6 +148,9 @@ func (fj *FolderJournal) DeleteEntries(entries []Entry) error {
 // AddEntries adds multiple entries, grouped by day file for efficiency.
 // Each affected day file is loaded and written at most once.
 func (fj *FolderJournal) AddEntries(entries []Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
 	for _, batch := range groupByDay(entries) {
 		d, err := fj.loadDayFile(batch[0].Date)
 		if err != nil {
