@@ -38,11 +38,12 @@ func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, 
 		Template:   tmpl,
 	}
 
+	path := fj.DayFilePath(now)
+
 	if fj.Encrypted() {
-		return editor.LaunchEncrypted(fj.DayFilePath(now), now, ecfg)
+		return editor.LaunchEncrypted(path, now, ecfg)
 	}
 
-	path := fj.DayFilePath(now)
 	lineCount, err := editor.PrepareDayFile(path, now, ecfg)
 	if err != nil {
 		return fmt.Errorf("preparing day file: %w", err)
