@@ -44,6 +44,37 @@ After each pass, `go test ./e2e/... -run TestCompat -v` must show:
 | Pass 5: Per-journal Config | Done | Per-journal config overrides (templates pending) |
 | Docs Pass | Pending | README.md, docs/config.md polish |
 
+## Storage Model: Day File First
+
+jrnl-md stores one markdown file per calendar day (`YYYY/MM/DD.md`). This is fundamentally
+different from jrnl's single-file model. All code must follow these principles:
+
+### The day file is the unit of work
+
+- Load only the day files an operation needs. Never load the entire journal for a
+  single-day operation.
+- Mutations (add, delete, update) load the target day file, modify it, and write it back
+  immediately. No deferred batch saves.
+- The directory structure (`YYYY/MM/`) is the primary index. Use it to skip irrelevant
+  files rather than loading everything and filtering in memory.
+
+### Do not flatten into a single-file abstraction
+
+- Do not serialize multiple days into a single blob for editing when you can open day
+  files directly.
+- Do not delete-then-re-add entries when you can update them in place within their day file.
+- Do not scan all loaded days to find an entry when `entry.Date` tells you exactly which
+  file it lives in.
+
+### When the single-file pattern IS needed
+
+Two cases legitimately need cross-day serialization:
+- `--import`: parsing a jrnl-format single-file export (`ParseMultiDay`)
+- Filtered `--edit` spanning multiple days or a partial day: serialize to temp file, edit,
+  parse back (`FormatEntries` / `ParseMultiDay`)
+
+Outside these cases, avoid `FormatEntries` and `ParseMultiDay`.
+
 ## Documented Exceptions
 
 See `docs/jrnl-compat.md` for the full list. Key exceptions:
