@@ -33,6 +33,13 @@
   `line 1: missing day heading (expected "# YYYY-MM-DD Weekday")`. Include the line number,
   the bad value, and the expected format so the user can fix it without guessing.
   Key locations: `cmd/jrnl-md/edit.go`, `internal/journal/day.go:22-34`
+- [ ] **#7** Simplify editFiltered to work with day files directly `#improvement` `#edit` *(2026-03-30)*
+  `editFiltered` inherits jrnl's single-file pattern: serialize all matching entries into one
+  multi-day blob → temp file → parse back → delete+re-add via `ReplaceEntries`. For single-day
+  filters (the common case), just open the day file directly. For multi-day filters, open each
+  affected day file in sequence. This eliminates the `FormatEntries` → `ParseMultiDay` →
+  `ReplaceEntries` pipeline from the edit flow. `FormatEntries`/`ParseMultiDay` stay for
+  `--import` only. `cmd/jrnl-md/edit.go:56-95`, `internal/journal/day.go:97-146`
 - [ ] **#1** Compat test suite audit `#improvement` `#docs` *(2026-03-30)*
   Cross-reference every feature in `docs/jrnl-compat.md` against `e2e/jrnl_compat_test.go`.
   Confirm each has a real assertion. Add `TestCompat_*` tests for gaps. Known gaps:
@@ -41,6 +48,18 @@
 
 ## Medium
 
+- [ ] **#9** Use LoadDay instead of Load for single-day operations `#improvement` `#journal` *(2026-03-30)*
+  `--delete --on DATE`, `--edit --on DATE`, `--change-time --on DATE` all call `fj.Load()`
+  which reads every day file into memory, then filters down to the target entries. When a
+  single date is known from the filter flags, use `LoadDay` instead — load one file, operate
+  on it, save it. `root.go:196-218`
+- [ ] **#8** Replace ReplaceEntries delete+re-add with direct day-level update `#improvement` `#journal` *(2026-03-30)*
+  `ReplaceEntries` deletes all matching entries by scanning every loaded day, then re-adds
+  new entries via `AddEntry` which re-partitions them into day buckets. Since each entry's
+  `Date` maps to exactly one day file, add an in-place `UpdateEntry` or patch the day's
+  entry list directly. Same issue in `DeleteEntries` and `ChangeEntryTimes` — they scan all
+  days when they could route by `dateKeyFromTime(e.Date)`.
+  `internal/journal/folder.go:292-377`
 - [ ] **#4** Skip malformed day files during Load instead of aborting `#bug` `#journal` *(2026-03-30)*
   A single file with a bad date or time heading causes `Load()` to abort — the entire journal
   becomes unreadable. Spec: log a warning to stderr with the file path and specific parse
