@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"flag"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -174,5 +176,30 @@ func TestGolden(t *testing.T) {
 					tt.slug, dir, filename, unifiedDiff(golden, actual), stdout)
 			}
 		})
+	}
+}
+
+// TestGoldenExportFile verifies --file output matches the export-json golden file.
+func TestGoldenExportFile(t *testing.T) {
+	golden, ok := readGolden(t, goldenDir(t), "export-json.txt")
+	if !ok {
+		t.Skip("export-json golden file missing (run -update-golden first)")
+	}
+
+	env, _ := seedGoldenJournal(t)
+	outPath := filepath.Join(env.dir, "out.json")
+	run(t, env, "--format", "json", "--file", outPath, "-n", "99")
+
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("output file not created: %v", err)
+	}
+
+	actual := normalizeUniversal(stripANSI(string(data)))
+	actual = normalizeJSON(actual)
+	expected := normalizeJSON(golden)
+
+	if actual != expected {
+		t.Errorf("export-file-json mismatch with export-json golden\n\nDiff:\n%s", unifiedDiff(expected, actual))
 	}
 }
