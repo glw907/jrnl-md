@@ -50,6 +50,32 @@ var goldenTests = []goldenTest{
 		mdArgs:    []string{"--list"},
 		normalize: normalizeList,
 	},
+	// --- Filters ---
+	{slug: "filter-tag", mdArgs: []string{"@work", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-tag-and", mdArgs: []string{"@personal", "--and", "@life", "-n", "99"}, jrnlArgs: []string{"@personal", "-and", "@life", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-not-tag", mdArgs: []string{"--not", "@work", "-n", "99"}, jrnlArgs: []string{"-not", "@work", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-not-starred", mdArgs: []string{"--not-starred", "-n", "99"}, jrnlArgs: []string{"-not", "starred", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-not-tagged", mdArgs: []string{"--not-tagged", "-n", "99"}, jrnlArgs: []string{"-not", "tagged", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-contains", mdArgs: []string{"--contains", "afternoon", "-n", "99"}, jrnlArgs: []string{"-contains", "afternoon", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-from", mdArgs: []string{"--from", "2026-03-10", "-n", "99"}, jrnlArgs: []string{"-from", "2026-03-10", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-to", mdArgs: []string{"--to", "2026-03-10", "-n", "99"}, jrnlArgs: []string{"-to", "2026-03-10", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-on", mdArgs: []string{"--on", "2026-03-01", "-n", "99"}, jrnlArgs: []string{"-on", "2026-03-01", "-n", "99"}, normalize: normalizeDefault},
+	// --- Combined Filters ---
+	{slug: "filter-tag-starred", mdArgs: []string{"@work", "--starred", "-n", "99"}, jrnlArgs: []string{"@work", "-starred", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-from-to", mdArgs: []string{"--from", "2026-03-05", "--to", "2026-03-10", "-n", "99"}, jrnlArgs: []string{"-from", "2026-03-05", "-to", "2026-03-10", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-tag-from", mdArgs: []string{"@work", "--from", "2026-03-05", "-n", "99"}, jrnlArgs: []string{"@work", "-from", "2026-03-05", "-n", "99"}, normalize: normalizeDefault},
+	{slug: "filter-contains-n1", mdArgs: []string{"--contains", "morning", "-n", "1"}, jrnlArgs: []string{"-contains", "morning", "-n", "1"}, normalize: normalizeDefault},
+	{slug: "filter-not-tag-starred", mdArgs: []string{"--not", "@work", "--starred", "-n", "99"}, jrnlArgs: []string{"-not", "@work", "-starred", "-n", "99"}, normalize: normalizeDefault},
+	// --- Export Formats ---
+	{slug: "export-json", mdArgs: []string{"--format", "json", "-n", "99"}, normalize: normalizeJSON},
+	{slug: "export-txt", mdArgs: []string{"--format", "txt", "-n", "99"}, normalize: normalizeTxt},
+	{slug: "export-md", mdArgs: []string{"--format", "md", "-n", "99"}, normalize: normalizeMd},
+	{slug: "export-xml", mdArgs: []string{"--format", "xml", "-n", "99"}, skipOracle: true},
+	{slug: "export-yaml", mdArgs: []string{"--format", "yaml", "-n", "99"}, skipOracle: true},
+	// --- Export + Filter Combos ---
+	{slug: "export-json-tag", mdArgs: []string{"@work", "--format", "json", "-n", "99"}, normalize: normalizeJSON},
+	{slug: "export-txt-from", mdArgs: []string{"--from", "2026-03-10", "--format", "txt", "-n", "99"}, jrnlArgs: []string{"-from", "2026-03-10", "--format", "txt", "-n", "99"}, normalize: normalizeTxt},
+	{slug: "export-json-starred", mdArgs: []string{"--starred", "--format", "json", "-n", "99"}, jrnlArgs: []string{"-starred", "--format", "json", "-n", "99"}, normalize: normalizeJSON},
 }
 
 func TestGolden(t *testing.T) {
