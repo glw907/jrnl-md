@@ -1,0 +1,3 @@
+@work                : 2
+@personal            : 2
+@life                : 1

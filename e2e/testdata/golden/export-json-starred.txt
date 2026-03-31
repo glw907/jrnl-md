@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "body": "Starred afternoon entry.",
+      "date": "2026-03-01",
+      "starred": true,
+      "tags": [],
+      "time": "14:00"
+    },
+    {
+      "body": "Evening thoughts.",
+      "date": "2026-03-10",
+      "starred": true,
+      "tags": [],
+      "time": "20:00"
+    }
+  ],
+  "tags": {}
+}

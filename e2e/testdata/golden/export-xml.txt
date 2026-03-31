@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<journal>
+  <entries>
+    <entry date="2026-03-01T09:00:00" starred="false">
+      <tag name="@work"></tag>First @work entry with a longer body that can test linewrap behavior when the configuration sets a narrow column width.
+    </entry>
+    <entry date="2026-03-01T14:00:00" starred="true">Starred afternoon entry.</entry>
+    <entry date="2026-03-05T10:30:00" starred="false">
+      <tag name="@personal"></tag>
+      <tag name="@life"></tag>A @personal reflection about @life and the importance of journaling regularly.
+    </entry>
+    <entry date="2026-03-10T08:00:00" starred="false">
+      <tag name="@work"></tag>Morning @work standup notes covering the sprint review.
+    </entry>
+    <entry date="2026-03-10T20:00:00" starred="true">Evening thoughts.</entry>
+    <entry date="2026-03-15T11:00:00" starred="false">
+      <tag name="@personal"></tag>Mid-month @personal entry.
+    </entry>
+  </entries>
+  <tags>
+    <tag name="@life">1</tag>
+    <tag name="@personal">2</tag>
+    <tag name="@work">2</tag>
+  </tags>
+</journal>
