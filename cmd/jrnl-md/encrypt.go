@@ -32,20 +32,10 @@ func decryptJournal(journalPath, journalName string, cfg config.Config, configPa
 
 func reencryptJournal(journalPath, journalName string, cfg config.Config, configPath string, fromEncrypt bool, passphrase string, toEncrypt bool) error {
 	fj := journal.NewFolderJournal(journalPath, journalOptions(cfg, fromEncrypt, passphrase))
-	if err := fj.Load(); err != nil {
-		return fmt.Errorf("loading journal: %w", err)
-	}
 
-	oldFiles := fj.LoadedPaths()
-
-	fj.MarkAllModified()
-	fj.SetEncryption(toEncrypt, passphrase)
-	if err := fj.Save(); err != nil {
-		return fmt.Errorf("saving journal: %w", err)
-	}
-
-	for _, f := range oldFiles {
-		os.Remove(f)
+	count, err := fj.ReencryptAll(toEncrypt, passphrase)
+	if err != nil {
+		return fmt.Errorf("reencrypting journal: %w", err)
 	}
 
 	jcfg := cfg.Journals[journalName]
@@ -59,6 +49,6 @@ func reencryptJournal(journalPath, journalName string, cfg config.Config, config
 	if !toEncrypt {
 		verb = "decrypted"
 	}
-	fmt.Fprintf(os.Stderr, "Journal %q %s (%d files).\n", journalName, verb, len(oldFiles))
+	fmt.Fprintf(os.Stderr, "Journal %q %s (%d files).\n", journalName, verb, count)
 	return nil
 }

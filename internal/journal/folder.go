@@ -447,6 +447,76 @@ func (fj *FolderJournal) MarkAllModified() {
 	}
 }
 
+// ReencryptAll walks all day files and re-writes them with the new encryption
+// setting. Writes all new files before deleting any old files (safe on failure).
+// Returns the number of files processed.
+func (fj *FolderJournal) ReencryptAll(toEncrypt bool, newPassphrase string) (int, error) {
+	files, err := fj.listDayFiles(nil, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	newExt := "." + fj.opts.FileExt
+	if toEncrypt {
+		newExt = "." + fj.opts.FileExt + ".age"
+	}
+
+	type rewrite struct{ oldPath, newPath string }
+	var rewrites []rewrite
+
+	for _, fi := range files {
+		data, err := os.ReadFile(fi.path)
+		if err != nil {
+			return 0, fmt.Errorf("reading %s: %w", fi.path, err)
+		}
+
+		if fj.opts.Encrypt {
+			data, err = crypto.Decrypt(data, fj.opts.Passphrase)
+			if err != nil {
+				return 0, fmt.Errorf("decrypting %s: %w", fi.path, err)
+			}
+		}
+
+		perm := os.FileMode(0644)
+		if toEncrypt {
+			data, err = crypto.Encrypt(data, newPassphrase)
+			if err != nil {
+				return 0, fmt.Errorf("encrypting: %w", err)
+			}
+			perm = 0600
+		}
+
+		newPath := filepath.Join(
+			fj.path,
+			fmt.Sprintf("%04d", fi.date.Year()),
+			fmt.Sprintf("%02d", int(fi.date.Month())),
+			fmt.Sprintf("%02d%s", fi.date.Day(), newExt),
+		)
+
+		dir := filepath.Dir(newPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return 0, err
+		}
+
+		if err := atomicfile.WriteFile(newPath, data, perm); err != nil {
+			return 0, fmt.Errorf("writing %s: %w", newPath, err)
+		}
+
+		if fi.path != newPath {
+			rewrites = append(rewrites, rewrite{fi.path, newPath})
+		}
+	}
+
+	for _, r := range rewrites {
+		os.Remove(r.oldPath)
+	}
+
+	fj.opts.Encrypt = toEncrypt
+	fj.opts.Passphrase = newPassphrase
+
+	return len(files), nil
+}
+
 // dayFileInfo holds a resolved path and parsed date for a single day file.
 type dayFileInfo struct {
 	path string

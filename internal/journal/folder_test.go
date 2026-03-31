@@ -1163,3 +1163,58 @@ func TestUpdateEntryCrossDay(t *testing.T) {
 		t.Errorf("original day file missing: %v", err)
 	}
 }
+
+func TestReencryptAll(t *testing.T) {
+	dir := t.TempDir()
+
+	content1 := "# 2026-03-28 Saturday\n\n## [09:00 AM]\n\nDay one.\n"
+	content2 := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nDay two.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 28, 0, 0, 0, 0, time.Local), content1, "md")
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content2, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+
+	// Encrypt
+	count, err := fj.ReencryptAll(true, "testpass")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 files, got %d", count)
+	}
+
+	// Plain files should be gone, encrypted files should exist
+	if _, err := os.Stat(filepath.Join(dir, "2026", "03", "28.md")); !errors.Is(err, os.ErrNotExist) {
+		t.Error("plain file should be deleted")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "2026", "03", "28.md.age")); err != nil {
+		t.Errorf("encrypted file missing: %v", err)
+	}
+
+	// Verify encrypted content is not plaintext
+	data, _ := os.ReadFile(filepath.Join(dir, "2026", "03", "28.md.age"))
+	if strings.Contains(string(data), "Day one.") {
+		t.Error("encrypted file contains plaintext")
+	}
+
+	// Decrypt
+	count, err = fj.ReencryptAll(false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 files, got %d", count)
+	}
+
+	// Encrypted files should be gone, plain files should exist with correct content
+	if _, err := os.Stat(filepath.Join(dir, "2026", "03", "28.md.age")); !errors.Is(err, os.ErrNotExist) {
+		t.Error("encrypted file should be deleted")
+	}
+	data, err = os.ReadFile(filepath.Join(dir, "2026", "03", "28.md"))
+	if err != nil {
+		t.Fatalf("plain file missing: %v", err)
+	}
+	if !strings.Contains(string(data), "Day one.") {
+		t.Errorf("content lost after round-trip: %s", data)
+	}
+}
