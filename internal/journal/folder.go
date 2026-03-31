@@ -391,6 +391,9 @@ func (fj *FolderJournal) removeDayFile(date time.Time) error {
 // the journal root.
 func (fj *FolderJournal) cleanEmptyParents(dir string) {
 	for dir != fj.path {
+		if filepath.Dir(dir) == dir {
+			break
+		}
 		entries, err := os.ReadDir(dir)
 		if err != nil || len(entries) > 0 {
 			break
