@@ -1,0 +1,6 @@
+{
+  "backlog_path": "BACKLOG.md",
+  "roadmap_path": "ROADMAP.md",
+  "domains": ["cli", "journal", "edit", "config", "docs"],
+  "default_priority": "medium"
+}
