@@ -36,27 +36,37 @@ func changeTime(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs 
 		fmt.Fprintf(os.Stderr, "%d entries found.\n", len(entries))
 	}
 
-	var changed int
+	var toChange []journal.Entry
 	for _, e := range entries {
 		msg := fmt.Sprintf("Change time for '%s'?", e.FormatShort(cfg.Format.Date, cfg.Format.Time))
 		if prompt.YesNo(os.Stdin, os.Stderr, msg) {
-			updated := e
-			updated.Date = newTime
-			if err := fj.UpdateEntry(e, updated); err != nil {
-				return fmt.Errorf("changing time: %w", err)
-			}
-			changed++
+			toChange = append(toChange, e)
 		}
 	}
 
-	if changed == 0 {
+	if len(toChange) == 0 {
 		return nil
 	}
 
-	if changed == 1 {
+	if err := fj.DeleteEntries(toChange); err != nil {
+		return fmt.Errorf("removing entries: %w", err)
+	}
+
+	var updated []journal.Entry
+	for _, e := range toChange {
+		u := e
+		u.Date = newTime
+		updated = append(updated, u)
+	}
+
+	if err := fj.AddEntries(updated); err != nil {
+		return fmt.Errorf("adding entries: %w", err)
+	}
+
+	if len(toChange) == 1 {
 		fmt.Fprintf(os.Stderr, "1 entry modified.\n")
 	} else {
-		fmt.Fprintf(os.Stderr, "%d entries modified.\n", changed)
+		fmt.Fprintf(os.Stderr, "%d entries modified.\n", len(toChange))
 	}
 
 	return nil

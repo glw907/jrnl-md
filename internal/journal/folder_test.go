@@ -1002,3 +1002,65 @@ func TestReencryptAll(t *testing.T) {
 		t.Errorf("content lost after round-trip: %s", data)
 	}
 }
+
+func TestDeleteEntriesBatch(t *testing.T) {
+	dir := t.TempDir()
+
+	content1 := "# 2026-03-28 Saturday\n\n## [09:00 AM]\n\nDay one.\n"
+	content2 := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nFirst.\n\n## [10:00 AM]\n\nSecond.\n\n## [11:00 AM]\n\nThird.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 28, 0, 0, 0, 0, time.Local), content1, "md")
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content2, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+	entries, err := fj.Entries(&Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 4 {
+		t.Fatalf("expected 4 entries, got %d", len(entries))
+	}
+
+	// Delete from both days in one call: "Day one." (Mar 28) and "Second." (Mar 29)
+	if err := fj.DeleteEntries([]Entry{entries[0], entries[2]}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := fj.Entries(&Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(result))
+	}
+	if result[0].Body != "First." {
+		t.Errorf("entry 0 body = %q, want First.", result[0].Body)
+	}
+	if result[1].Body != "Third." {
+		t.Errorf("entry 1 body = %q, want Third.", result[1].Body)
+	}
+}
+
+func TestAddEntriesBatch(t *testing.T) {
+	dir := t.TempDir()
+	fj := NewFolderJournal(dir, testOpts)
+
+	entries := []Entry{
+		{Date: time.Date(2026, 3, 29, 9, 0, 0, 0, time.Local), Body: "First."},
+		{Date: time.Date(2026, 3, 29, 10, 0, 0, 0, time.Local), Body: "Second."},
+		{Date: time.Date(2026, 3, 28, 9, 0, 0, 0, time.Local), Body: "Other day."},
+	}
+	if err := fj.AddEntries(entries); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := fj.Entries(&Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(result))
+	}
+	if result[0].Body != "Other day." {
+		t.Errorf("entry 0 body = %q, want Other day.", result[0].Body)
+	}
+}

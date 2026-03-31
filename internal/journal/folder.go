@@ -112,6 +112,61 @@ func (fj *FolderJournal) UpdateEntry(old, updated Entry) error {
 	return fj.AddEntry(updated.Date, updated.Body, updated.Starred)
 }
 
+func groupByDay(entries []Entry) map[dateKey][]Entry {
+	grouped := make(map[dateKey][]Entry)
+	for _, e := range entries {
+		key := dateKeyFromTime(e.Date)
+		grouped[key] = append(grouped[key], e)
+	}
+	return grouped
+}
+
+// DeleteEntries removes multiple entries, grouped by day file for efficiency.
+// Each affected day file is loaded and written at most once.
+func (fj *FolderJournal) DeleteEntries(entries []Entry) error {
+	for _, batch := range groupByDay(entries) {
+		d, err := fj.loadDayFile(batch[0].Date)
+		if err != nil {
+			return err
+		}
+		for _, target := range batch {
+			found := false
+			var kept []Entry
+			for _, existing := range d.entries {
+				if !found && existing.Date.Equal(target.Date) && existing.Body == target.Body {
+					found = true
+					continue
+				}
+				kept = append(kept, existing)
+			}
+			d.entries = kept
+		}
+		if err := fj.writeDay(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AddEntries adds multiple entries, grouped by day file for efficiency.
+// Each affected day file is loaded and written at most once.
+func (fj *FolderJournal) AddEntries(entries []Entry) error {
+	for _, batch := range groupByDay(entries) {
+		d, err := fj.loadDayFile(batch[0].Date)
+		if err != nil {
+			return err
+		}
+		for _, e := range batch {
+			d.addEntry(e.Body, e.Starred, e.Date)
+			d.entries[len(d.entries)-1].Tags = fj.tagParser.Parse(e.Body)
+		}
+		if err := fj.writeDay(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // DayFilePath returns the expected file path for a given date.
 func (fj *FolderJournal) DayFilePath(date time.Time) string {
 	ext := fj.opts.FileExt

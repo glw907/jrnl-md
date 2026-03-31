@@ -30,25 +30,26 @@ func deleteEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagAr
 		fmt.Fprintf(os.Stderr, "%d entries found.\n", len(entries))
 	}
 
-	var deleted int
+	var toDelete []journal.Entry
 	for _, e := range entries {
 		msg := fmt.Sprintf("Delete entry '%s'?", e.FormatShort(cfg.Format.Date, cfg.Format.Time))
 		if prompt.YesNo(os.Stdin, os.Stderr, msg) {
-			if err := fj.DeleteEntry(e); err != nil {
-				return fmt.Errorf("deleting entry: %w", err)
-			}
-			deleted++
+			toDelete = append(toDelete, e)
 		}
 	}
 
-	if deleted == 0 {
+	if len(toDelete) == 0 {
 		return nil
 	}
 
-	if deleted == 1 {
+	if err := fj.DeleteEntries(toDelete); err != nil {
+		return fmt.Errorf("deleting entries: %w", err)
+	}
+
+	if len(toDelete) == 1 {
 		fmt.Fprintf(os.Stderr, "1 entry deleted.\n")
 	} else {
-		fmt.Fprintf(os.Stderr, "%d entries deleted.\n", deleted)
+		fmt.Fprintf(os.Stderr, "%d entries deleted.\n", len(toDelete))
 	}
 
 	return nil

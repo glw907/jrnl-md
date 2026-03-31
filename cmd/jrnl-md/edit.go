@@ -76,16 +76,12 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 		return fmt.Errorf("parsing edited entries: %w", err)
 	}
 
-	for _, e := range entries {
-		if err := fj.DeleteEntry(e); err != nil {
-			return fmt.Errorf("removing old entry: %w", err)
-		}
+	if err := fj.DeleteEntries(entries); err != nil {
+		return fmt.Errorf("removing old entries: %w", err)
 	}
 
-	for _, e := range newEntries {
-		if err := fj.AddEntry(e.Date, e.Body, e.Starred); err != nil {
-			return fmt.Errorf("adding edited entry: %w", err)
-		}
+	if err := fj.AddEntries(newEntries); err != nil {
+		return fmt.Errorf("adding edited entries: %w", err)
 	}
 
 	n := len(newEntries)
