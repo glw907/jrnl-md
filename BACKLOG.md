@@ -17,15 +17,16 @@
   If empty result, abort with warning per #6. If fewer entries, accept and print count
   (already works).
   **Direct --edit** (raw day file): back up the pre-edit content. After the editor exits,
-  re-parse with `parseDay`. If it parses, re-serialize with `day.Format()` to normalize
-  spacing. If it fails, show the parse error and offer to re-open. If the user declines,
-  restore the backup. Never silently accept broken structure — that defers the problem to
-  the next `Load()`.
-  **Encrypted --edit** (decrypt → temp file → re-encrypt): same pattern as direct --edit.
-  After the editor exits, parse the edited content before re-encrypting. If it fails, show
-  the error and offer to re-open. If the user declines, discard edits (the original encrypted
-  file is untouched since `LaunchEncrypted` only writes after success).
-  `internal/editor/editor.go:143-178`
+  re-parse with `parseDay` to validate only — do not re-serialize. If valid, do a lightweight
+  whitespace cleanup in place (normalize blank lines around `##` headings, trim trailing
+  spaces). If invalid, show the parse error and offer to re-open. If the user declines,
+  restore the backup. No full serialize→parse round-trip — that pattern is a hold-over from
+  jrnl's single-file format and unnecessary when we're editing a per-day file directly.
+  **Encrypted --edit** (decrypt → temp file → re-encrypt): same validate-only pattern as
+  direct --edit. After the editor exits, parse the edited content to validate before
+  re-encrypting. If invalid, show the error and offer to re-open. If the user declines,
+  discard edits (the original encrypted file is untouched since `LaunchEncrypted` only writes
+  after success). `internal/editor/editor.go:143-178`
   **Error messages must be actionable.** Don't just say what failed — say what was expected.
   Examples: `line 1: missing day heading (expected "# 2026-03-30 Sunday")`,
   `line 5: can't parse time "3:59pm" (expected format "03:04 PM", e.g. "## [03:59 PM]")`,
