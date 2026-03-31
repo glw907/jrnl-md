@@ -40,7 +40,7 @@
   becomes unreadable. Spec: log a warning to stderr with the file path and specific parse
   error, skip the file, continue loading everything else. Error messages must be actionable —
   include the file path, line number, bad value, and expected format, e.g.:
-  `warning: 2026/03/30.md: line 3: can't parse time "3:59pm" (expected "03:04 PM") — skipping file`.
+  `warning: 2026/03/30.md: line 3: can't parse time "3:59pm" (expected "## [03:04 PM]") — skipping file`.
   The user can then go fix that one file manually. jrnl's folder backend has the same crash
   behavior (arguably a bug), so this is a reasonable deviation to document in
   `docs/jrnl-compat.md`. `internal/journal/folder.go:120-123`
