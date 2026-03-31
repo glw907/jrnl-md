@@ -13,9 +13,8 @@ var (
 )
 
 type day struct {
-	date     time.Time
-	entries  []Entry
-	modified bool
+	date    time.Time
+	entries []Entry
 }
 
 // Format serializes a day as markdown: day heading followed by entry sections.
@@ -91,7 +90,6 @@ func (d *day) addEntry(body string, starred bool, date time.Time) {
 		Body:    body,
 		Starred: starred,
 	})
-	d.modified = true
 }
 
 // FormatEntries serializes a flat slice of entries as a multi-day markdown blob.
