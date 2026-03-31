@@ -362,7 +362,15 @@ func normalizeJSON(s string) string {
 			if !ok {
 				continue
 			}
-			// Remove jrnl-specific "title" key.
+			// jrnl splits text into title + body; jrnl-md has only body.
+			// Merge title into body before removing the key.
+			if title, ok := entry["title"].(string); ok && title != "" {
+				if body, _ := entry["body"].(string); body != "" {
+					entry["body"] = title + "\n" + body
+				} else {
+					entry["body"] = title
+				}
+			}
 			delete(entry, "title")
 			// Sort tags slice for stable comparison.
 			if tags, ok := entry["tags"].([]any); ok {
