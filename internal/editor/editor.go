@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/glw907/jrnl-md/internal/atomicfile"
-	"github.com/glw907/jrnl-md/internal/crypto"
 	"github.com/glw907/jrnl-md/internal/journal"
 )
 
@@ -141,43 +140,4 @@ func PrepareEncryptedContent(existing string, date time.Time, cfg Config) (strin
 		}
 	}
 	return existing, countLines(existing)
-}
-
-// LaunchEncrypted decrypts the day file (if it exists), appends an entry
-// heading, opens the editor, then re-encrypts and writes atomically.
-func LaunchEncrypted(encPath string, date time.Time, cfg Config) error {
-	var existing string
-	data, err := os.ReadFile(encPath)
-	if err == nil {
-		plain, err := crypto.Decrypt(data, cfg.Passphrase)
-		if err != nil {
-			return fmt.Errorf("decrypting %s: %w", encPath, err)
-		}
-		existing = string(plain)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("reading %s: %w", encPath, err)
-	}
-
-	content, lineCount := PrepareEncryptedContent(existing, date, cfg)
-
-	edited, err := WriteTempAndEdit(cfg.Command, content, lineCount)
-	if err != nil {
-		return err
-	}
-
-	dir := filepath.Dir(encPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("creating directory %s: %w", dir, err)
-	}
-
-	enc, err := crypto.Encrypt(edited, cfg.Passphrase)
-	if err != nil {
-		return fmt.Errorf("encrypting: %w", err)
-	}
-
-	if err := atomicfile.WriteFile(encPath, enc, 0600); err != nil {
-		return fmt.Errorf("writing %s: %w", encPath, err)
-	}
-
-	return nil
 }

@@ -43,6 +43,7 @@ After each pass, `go test ./e2e/... -run TestCompat -v` must show:
 | Pass 4: Import | Done | --import FILE |
 | Pass 5: Per-journal Config | Done | Per-journal config overrides (templates pending) |
 | Pass 6: Day-File Simplification | Done | Restructure FolderJournal around per-day-file storage model |
+| Pass 7: Edit Validation | Done | Post-edit validation, empty abort, single-day direct edit |
 | Docs Pass | Pending | README.md, docs/config.md polish |
 
 ## Storage Model: Day File First
