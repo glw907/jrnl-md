@@ -502,6 +502,94 @@ func (fj *FolderJournal) listDayFiles(start, end *time.Time) ([]dayFileInfo, err
 	return files, nil
 }
 
+// loadDayFile reads and parses a single day file. Returns an empty day
+// if the file does not exist. Does not store state in fj.
+func (fj *FolderJournal) loadDayFile(date time.Time) (*day, error) {
+	path := fj.DayFilePath(date)
+
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return &day{
+			date: time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local),
+		}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	if fj.opts.Encrypt {
+		data, err = crypto.Decrypt(data, fj.opts.Passphrase)
+		if err != nil {
+			return nil, fmt.Errorf("decrypting %s: %w", path, err)
+		}
+	}
+
+	parsed, err := parseDay(string(data), fj.opts.DateFmt, fj.opts.TimeFmt)
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	for i := range parsed.entries {
+		parsed.entries[i].Tags = fj.tagParser.Parse(parsed.entries[i].Body)
+	}
+
+	return &parsed, nil
+}
+
+// writeDay serializes a day to disk. If the day has no entries, the file
+// is deleted and empty parent directories are cleaned up.
+func (fj *FolderJournal) writeDay(d *day) error {
+	if len(d.entries) == 0 {
+		return fj.removeDayFile(d.date)
+	}
+
+	path := fj.DayFilePath(d.date)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating directory %s: %w", dir, err)
+	}
+
+	content := d.Format(fj.opts.DateFmt, fj.opts.TimeFmt)
+	data := []byte(content)
+	perm := os.FileMode(0644)
+
+	if fj.opts.Encrypt {
+		var err error
+		data, err = crypto.Encrypt(data, fj.opts.Passphrase)
+		if err != nil {
+			return fmt.Errorf("encrypting: %w", err)
+		}
+		perm = 0600
+	}
+
+	return atomicfile.WriteFile(path, data, perm)
+}
+
+// removeDayFile deletes the day file for the given date and cleans up
+// empty parent directories.
+func (fj *FolderJournal) removeDayFile(date time.Time) error {
+	path := fj.DayFilePath(date)
+	err := os.Remove(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	fj.cleanEmptyParents(filepath.Dir(path))
+	return nil
+}
+
+// cleanEmptyParents removes empty directories up to (but not including)
+// the journal root.
+func (fj *FolderJournal) cleanEmptyParents(dir string) {
+	for dir != fj.path {
+		entries, err := os.ReadDir(dir)
+		if err != nil || len(entries) > 0 {
+			break
+		}
+		os.Remove(dir)
+		dir = filepath.Dir(dir)
+	}
+}
+
 // ImportEntry adds e to the journal if no entry with the same timestamp exists.
 // Returns true if the entry was added, false if a duplicate was found (skipped).
 // LoadDay is called automatically if the target day is not yet loaded.

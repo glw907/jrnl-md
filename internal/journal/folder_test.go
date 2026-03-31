@@ -1,6 +1,7 @@
 package journal
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -738,6 +739,90 @@ func TestImportEntry_MultipleEntries(t *testing.T) {
 	if len(entries) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(entries))
 	}
+}
+
+func TestLoadDayFile(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nHello world.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+
+	t.Run("existing file", func(t *testing.T) {
+		d, err := fj.loadDayFile(time.Date(2026, 3, 29, 14, 0, 0, 0, time.Local))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.entries) != 1 {
+			t.Fatalf("expected 1 entry, got %d", len(d.entries))
+		}
+		if d.entries[0].Body != "Hello world." {
+			t.Errorf("body = %q", d.entries[0].Body)
+		}
+	})
+
+	t.Run("missing file returns empty day", func(t *testing.T) {
+		d, err := fj.loadDayFile(time.Date(2026, 1, 1, 0, 0, 0, 0, time.Local))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.entries) != 0 {
+			t.Fatalf("expected 0 entries, got %d", len(d.entries))
+		}
+	})
+}
+
+func TestWriteDay(t *testing.T) {
+	dir := t.TempDir()
+	fj := NewFolderJournal(dir, testOpts)
+
+	t.Run("writes day file", func(t *testing.T) {
+		d := &day{
+			date:    time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local),
+			entries: []Entry{{Date: time.Date(2026, 3, 29, 9, 0, 0, 0, time.Local), Body: "Written."}},
+		}
+		if err := fj.writeDay(d); err != nil {
+			t.Fatal(err)
+		}
+
+		path := filepath.Join(dir, "2026", "03", "29.md")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "Written.") {
+			t.Errorf("file missing entry body, got: %s", data)
+		}
+	})
+
+	t.Run("empty day deletes file and parent dirs", func(t *testing.T) {
+		d := &day{
+			date:    time.Date(2026, 5, 10, 0, 0, 0, 0, time.Local),
+			entries: []Entry{{Date: time.Date(2026, 5, 10, 9, 0, 0, 0, time.Local), Body: "Temp."}},
+		}
+		if err := fj.writeDay(d); err != nil {
+			t.Fatal(err)
+		}
+
+		path := filepath.Join(dir, "2026", "05", "10.md")
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("file should exist: %v", err)
+		}
+
+		d.entries = nil
+		if err := fj.writeDay(d); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Error("file should be deleted")
+		}
+		monthDir := filepath.Join(dir, "2026", "05")
+		if _, err := os.Stat(monthDir); !errors.Is(err, os.ErrNotExist) {
+			t.Error("empty month dir should be removed")
+		}
+	})
 }
 
 func TestListDayFiles(t *testing.T) {
