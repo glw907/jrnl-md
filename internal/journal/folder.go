@@ -590,6 +590,41 @@ func (fj *FolderJournal) cleanEmptyParents(dir string) {
 	}
 }
 
+// Entries loads day files matching the filter's date range, applies content
+// filters, and returns matching entries sorted by date.
+func (fj *FolderJournal) Entries(f *Filter) ([]Entry, error) {
+	start, end := f.DateRange()
+	files, err := fj.listDayFiles(start, end)
+	if err != nil {
+		return nil, err
+	}
+
+	var all []Entry
+	for _, fi := range files {
+		d, err := fj.loadDayFile(fi.date)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s: %v -- skipping file\n", fi.path, err)
+			continue
+		}
+		all = append(all, d.entries...)
+	}
+
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].Date.Before(all[j].Date)
+	})
+
+	return f.Apply(all), nil
+}
+
+// DayEntries returns all entries for a single calendar day.
+func (fj *FolderJournal) DayEntries(date time.Time) ([]Entry, error) {
+	d, err := fj.loadDayFile(date)
+	if err != nil {
+		return nil, err
+	}
+	return d.entries, nil
+}
+
 // ImportEntry adds e to the journal if no entry with the same timestamp exists.
 // Returns true if the entry was added, false if a duplicate was found (skipped).
 // LoadDay is called automatically if the target day is not yet loaded.

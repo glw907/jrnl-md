@@ -899,3 +899,102 @@ func TestListDayFiles(t *testing.T) {
 		}
 	})
 }
+
+func TestEntries(t *testing.T) {
+	dir := t.TempDir()
+
+	content1 := "# 2026-03-01 Sunday\n\n## [09:00 AM]\n\nMarch first @work.\n\n## [02:00 PM] *\n\nAfternoon.\n"
+	content2 := "# 2026-03-15 Sunday\n\n## [10:00 AM]\n\nMarch fifteenth @personal.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local), content1, "md")
+	writeDayFile(t, dir, time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local), content2, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+
+	t.Run("no filter returns all sorted", func(t *testing.T) {
+		f := &Filter{}
+		entries, err := fj.Entries(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 3 {
+			t.Fatalf("expected 3 entries, got %d", len(entries))
+		}
+		if entries[0].Body != "March first @work." {
+			t.Errorf("entry 0 body = %q", entries[0].Body)
+		}
+	})
+
+	t.Run("date range filter", func(t *testing.T) {
+		start := time.Date(2026, 3, 10, 0, 0, 0, 0, time.Local)
+		f := &Filter{StartDate: &start}
+		entries, err := fj.Entries(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 1 {
+			t.Fatalf("expected 1 entry, got %d", len(entries))
+		}
+	})
+
+	t.Run("content filter", func(t *testing.T) {
+		f := &Filter{Starred: true}
+		entries, err := fj.Entries(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 1 {
+			t.Fatalf("expected 1 starred entry, got %d", len(entries))
+		}
+	})
+
+	t.Run("N limit", func(t *testing.T) {
+		f := &Filter{N: 2}
+		entries, err := fj.Entries(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 2 {
+			t.Fatalf("expected 2 entries, got %d", len(entries))
+		}
+		if entries[0].Body != "Afternoon." {
+			t.Errorf("expected second entry, got %q", entries[0].Body)
+		}
+	})
+
+	t.Run("missing dir returns empty", func(t *testing.T) {
+		fj2 := NewFolderJournal(filepath.Join(dir, "nonexistent"), testOpts)
+		f := &Filter{}
+		entries, err := fj2.Entries(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 0 {
+			t.Fatalf("expected 0, got %d", len(entries))
+		}
+	})
+}
+
+func TestDayEntries(t *testing.T) {
+	dir := t.TempDir()
+
+	content := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nFirst.\n\n## [10:00 AM]\n\nSecond.\n"
+	writeDayFile(t, dir, time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local), content, "md")
+
+	fj := NewFolderJournal(dir, testOpts)
+
+	entries, err := fj.DayEntries(time.Date(2026, 3, 29, 0, 0, 0, 0, time.Local))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	entries, err = fj.DayEntries(time.Date(2026, 1, 1, 0, 0, 0, 0, time.Local))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected 0 entries, got %d", len(entries))
+	}
+}
