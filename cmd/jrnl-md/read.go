@@ -14,13 +14,14 @@ import (
 )
 
 func readEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs []string) error {
-	entries := fj.AllEntries()
-
 	flt, err := buildFilter(f, tagArgs, cfg)
 	if err != nil {
 		return fmt.Errorf("building filter: %w", err)
 	}
-	entries = flt.Apply(entries)
+	entries, err := fj.Entries(&flt)
+	if err != nil {
+		return fmt.Errorf("loading journal: %w", err)
+	}
 
 	if f.tags {
 		return showTags(entries)

@@ -40,10 +40,6 @@ func importEntries(fj *journal.FolderJournal, source, dateFmt, timeFmt string) e
 		}
 	}
 
-	if err := fj.Save(); err != nil {
-		return fmt.Errorf("saving journal: %w", err)
-	}
-
 	fmt.Fprintf(os.Stderr, "Imported %d entries. Skipped %d duplicates.\n", added, skipped)
 	return nil
 }

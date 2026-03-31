@@ -10,13 +10,14 @@ import (
 )
 
 func deleteEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagArgs []string) error {
-	entries := fj.AllEntries()
-
 	flt, err := buildFilter(f, tagArgs, cfg)
 	if err != nil {
 		return fmt.Errorf("building filter: %w", err)
 	}
-	entries = flt.Apply(entries)
+	entries, err := fj.Entries(&flt)
+	if err != nil {
+		return fmt.Errorf("loading journal: %w", err)
+	}
 
 	if len(entries) == 0 {
 		fmt.Fprintln(os.Stderr, "No entries to delete, because the search returned no results.")
@@ -29,28 +30,25 @@ func deleteEntries(fj *journal.FolderJournal, cfg config.Config, f *flags, tagAr
 		fmt.Fprintf(os.Stderr, "%d entries found.\n", len(entries))
 	}
 
-	var toDelete []journal.Entry
+	var deleted int
 	for _, e := range entries {
 		msg := fmt.Sprintf("Delete entry '%s'?", e.FormatShort(cfg.Format.Date, cfg.Format.Time))
 		if prompt.YesNo(os.Stdin, os.Stderr, msg) {
-			toDelete = append(toDelete, e)
+			if err := fj.DeleteEntry(e); err != nil {
+				return fmt.Errorf("deleting entry: %w", err)
+			}
+			deleted++
 		}
 	}
 
-	if len(toDelete) == 0 {
+	if deleted == 0 {
 		return nil
 	}
 
-	fj.DeleteEntries(toDelete)
-
-	if err := fj.Save(); err != nil {
-		return fmt.Errorf("saving journal: %w", err)
-	}
-
-	if len(toDelete) == 1 {
+	if deleted == 1 {
 		fmt.Fprintf(os.Stderr, "1 entry deleted.\n")
 	} else {
-		fmt.Fprintf(os.Stderr, "%d entries deleted.\n", len(toDelete))
+		fmt.Fprintf(os.Stderr, "%d entries deleted.\n", deleted)
 	}
 
 	return nil

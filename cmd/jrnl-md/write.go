@@ -23,19 +23,13 @@ func writeInline(fj *journal.FolderJournal, text []string, cfg config.Config, no
 		}
 	}
 
-	if err := fj.LoadDay(entryTime); err != nil {
-		return fmt.Errorf("loading journal for date %s: %w", entryTime.Format("2006-01-02"), err)
-	}
-
 	starred := strings.HasSuffix(body, "*") || strings.HasPrefix(body, "*")
 	if starred {
 		body = strings.Trim(body, "* ")
 	}
 
-	fj.AddEntry(entryTime, body, starred)
-
-	if err := fj.Save(); err != nil {
-		return fmt.Errorf("saving journal: %w", err)
+	if err := fj.AddEntry(entryTime, body, starred); err != nil {
+		return fmt.Errorf("adding entry: %w", err)
 	}
 
 	fmt.Fprintln(os.Stderr, "Entry added.")

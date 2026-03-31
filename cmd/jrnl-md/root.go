@@ -186,28 +186,23 @@ func runRoot(cmd *cobra.Command, args []string, f *flags) error {
 
 	if len(args) == 0 && !hasFilterFlags(f) && !f.edit {
 		fj := journal.NewFolderJournal(path, opts)
-		if err := fj.LoadDay(now); err != nil {
-			return fmt.Errorf("loading journal: %w", err)
-		}
 		return editEntry(fj, cfg, configPath, passphrase)
 	}
 
 	if f.edit {
 		fj := journal.NewFolderJournal(path, opts)
-		if err := fj.Load(); err != nil {
-			return fmt.Errorf("loading journal: %w", err)
-		}
 		flt, err := buildFilter(f, tagArgs, cfg)
 		if err != nil {
 			return fmt.Errorf("building filter: %w", err)
 		}
-		return editFiltered(fj, cfg, configPath, passphrase, flt.Apply(fj.AllEntries()))
+		entries, err := fj.Entries(&flt)
+		if err != nil {
+			return fmt.Errorf("loading journal: %w", err)
+		}
+		return editFiltered(fj, cfg, configPath, passphrase, entries)
 	}
 
 	fj := journal.NewFolderJournal(path, opts)
-	if err := fj.Load(); err != nil {
-		return fmt.Errorf("loading journal: %w", err)
-	}
 
 	if f.delete {
 		return deleteEntries(fj, cfg, f, tagArgs)
