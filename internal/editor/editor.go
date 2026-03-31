@@ -121,10 +121,15 @@ func countLines(text string) int {
 	return strings.Count(text, "\n") + 1
 }
 
-// prepareEncryptedContent builds the editor content for an encrypted day file.
+// IsEmptyContent returns true if the text is empty or whitespace-only.
+func IsEmptyContent(text string) bool {
+	return strings.TrimSpace(text) == ""
+}
+
+// PrepareEncryptedContent builds the editor content for an encrypted day file.
 // If existing is empty, a new day heading is created. A new entry heading is
 // always appended.
-func prepareEncryptedContent(existing string, date time.Time, cfg Config) (string, int) {
+func PrepareEncryptedContent(existing string, date time.Time, cfg Config) (string, int) {
 	if existing == "" {
 		existing = journal.DayHeading(date, cfg.DateFmt) + "\n"
 	}
@@ -153,7 +158,7 @@ func LaunchEncrypted(encPath string, date time.Time, cfg Config) error {
 		return fmt.Errorf("reading %s: %w", encPath, err)
 	}
 
-	content, lineCount := prepareEncryptedContent(existing, date, cfg)
+	content, lineCount := PrepareEncryptedContent(existing, date, cfg)
 
 	edited, err := WriteTempAndEdit(cfg.Command, content, lineCount)
 	if err != nil {

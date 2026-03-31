@@ -8,10 +8,29 @@ import (
 	"time"
 )
 
+func TestIsEmptyContent(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"", true},
+		{"   \n\n  ", true},
+		{"\t\n", true},
+		{"# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nEntry.\n", false},
+		{"some text", false},
+	}
+	for _, tt := range tests {
+		got := IsEmptyContent(tt.input)
+		if got != tt.want {
+			t.Errorf("IsEmptyContent(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestPrepareEncryptedNew(t *testing.T) {
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
 	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
-	content, lineCount := prepareEncryptedContent("", date, cfg)
+	content, lineCount := PrepareEncryptedContent("", date, cfg)
 
 	if !strings.HasPrefix(content, "# 2026-03-29 Sunday") {
 		t.Errorf("missing day heading, got: %q", content[:40])
@@ -28,7 +47,7 @@ func TestPrepareEncryptedExisting(t *testing.T) {
 	existing := "# 2026-03-29 Sunday\n\n## [09:00 AM]\n\nMorning entry.\n"
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
 	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
-	content, _ := prepareEncryptedContent(existing, date, cfg)
+	content, _ := PrepareEncryptedContent(existing, date, cfg)
 
 	if !strings.Contains(content, "Morning entry.") {
 		t.Error("lost existing content")
@@ -41,7 +60,7 @@ func TestPrepareEncryptedExisting(t *testing.T) {
 func TestPrepareEncryptedWithTemplate(t *testing.T) {
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
 	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM", Template: "## Mood\n"}
-	content, _ := prepareEncryptedContent("", date, cfg)
+	content, _ := PrepareEncryptedContent("", date, cfg)
 
 	if !strings.Contains(content, "## Mood") {
 		t.Error("missing template content")
