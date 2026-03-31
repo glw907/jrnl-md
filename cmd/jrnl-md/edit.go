@@ -199,35 +199,79 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
 	}
 
+	// Single-day redirect: if all entries are from one day and that day has no
+	// other entries, open the day file directly instead of the temp-file round-trip.
+	if isSingleDayFullMatch(fj, entries) {
+		date := entries[0].Date
+		return editDayFile(fj, cfg, configPath, passphrase, date, false)
+	}
+
+	// Multi-day or partial-day: temp file round-trip
 	content := journal.FormatEntries(entries, cfg.Format.Date, cfg.Format.Time)
 
-	edited, err := editor.WriteTempAndEdit(cfg.General.Editor, content, 1)
+	for {
+		edited, err := editor.WriteTempAndEdit(cfg.General.Editor, content, 1)
+		if err != nil {
+			return err
+		}
+
+		editedStr := string(edited)
+
+		// Empty check
+		if editor.IsEmptyContent(editedStr) {
+			fmt.Fprintln(os.Stderr, "No entries found after editing. Were you trying to delete all entries? Aborting — no changes made.")
+			return nil
+		}
+
+		// Validate
+		newEntries, parseErr := journal.ParseMultiDay(editedStr, cfg.Format.Date, cfg.Format.Time)
+		if parseErr != nil {
+			fmt.Fprintf(os.Stderr, "Error in edited content:\n  %s\n", parseErr)
+			if !prompt.YesNo(os.Stdin, os.Stderr, "Re-open editor?") {
+				fmt.Fprintln(os.Stderr, "Edits discarded. Journal unchanged.")
+				return nil
+			}
+			content = editedStr
+			continue
+		}
+
+		if err := fj.DeleteEntries(entries); err != nil {
+			return fmt.Errorf("removing old entries: %w", err)
+		}
+
+		if err := fj.AddEntries(newEntries); err != nil {
+			return fmt.Errorf("adding edited entries: %w", err)
+		}
+
+		n := len(newEntries)
+		switch {
+		case n == 0:
+			fmt.Fprintf(os.Stderr, "%d entries deleted.\n", len(entries))
+		case n == 1:
+			fmt.Fprintf(os.Stderr, "1 entry edited.\n")
+		default:
+			fmt.Fprintf(os.Stderr, "%d entries edited.\n", n)
+		}
+
+		return nil
+	}
+}
+
+// isSingleDayFullMatch returns true if all entries are from the same calendar
+// day and that day file has no other entries (full match).
+func isSingleDayFullMatch(fj *journal.FolderJournal, entries []journal.Entry) bool {
+	if len(entries) == 0 {
+		return false
+	}
+	firstDay := entries[0].Date
+	for _, e := range entries[1:] {
+		if e.Date.Year() != firstDay.Year() || e.Date.Month() != firstDay.Month() || e.Date.Day() != firstDay.Day() {
+			return false
+		}
+	}
+	dayEntries, err := fj.DayEntries(firstDay)
 	if err != nil {
-		return err
+		return false
 	}
-
-	newEntries, err := journal.ParseMultiDay(string(edited), cfg.Format.Date, cfg.Format.Time)
-	if err != nil {
-		return fmt.Errorf("parsing edited entries: %w", err)
-	}
-
-	if err := fj.DeleteEntries(entries); err != nil {
-		return fmt.Errorf("removing old entries: %w", err)
-	}
-
-	if err := fj.AddEntries(newEntries); err != nil {
-		return fmt.Errorf("adding edited entries: %w", err)
-	}
-
-	n := len(newEntries)
-	switch {
-	case n == 0:
-		fmt.Fprintf(os.Stderr, "%d entries deleted.\n", len(entries))
-	case n == 1:
-		fmt.Fprintf(os.Stderr, "1 entry edited.\n")
-	default:
-		fmt.Fprintf(os.Stderr, "%d entries edited.\n", n)
-	}
-
-	return nil
+	return len(dayEntries) == len(entries)
 }

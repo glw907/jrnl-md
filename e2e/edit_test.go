@@ -147,6 +147,54 @@ func TestEditEmptyBufferAborts(t *testing.T) {
 	}
 }
 
+func TestEditFilteredSingleDayRedirect(t *testing.T) {
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	// Edit --on 2026-03-01 matches all 2 entries on that day → should redirect to direct edit
+	editorPath := writeMockEditor(t, env.dir, "First @work entry", "Redirected edit")
+	patchConfigEditor(t, env.configPath, editorPath)
+
+	_, stderr := run(t, env, "--edit", "--on", "2026-03-01")
+
+	if strings.Contains(stderr, "error") || strings.Contains(stderr, "Error") {
+		t.Fatalf("unexpected error: %q", stderr)
+	}
+
+	march1 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local)
+	content := dayFileContent(t, env.journalDir, march1)
+	if !strings.Contains(content, "Redirected edit") {
+		t.Errorf("expected redirected edit content, got:\n%s", content)
+	}
+}
+
+func TestEditFilteredEmptyAborts(t *testing.T) {
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	// Mock editor that empties the temp file
+	script := "#!/bin/bash\nFILE=\"${@: -1}\"\necho -n '' > \"$FILE\"\n"
+	editorPath := filepath.Join(env.dir, "empty-editor.sh")
+	if err := os.WriteFile(editorPath, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	patchConfigEditor(t, env.configPath, editorPath)
+
+	// Filter that won't redirect to direct (partial day match — only @work, not starred)
+	_, stderr, _ := runErr(t, env, "--edit", "@work")
+
+	if !strings.Contains(stderr, "no changes made") && !strings.Contains(stderr, "No entries found") {
+		t.Errorf("expected abort message, got: %q", stderr)
+	}
+
+	// Verify @work entry still exists
+	march1 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local)
+	content := dayFileContent(t, env.journalDir, march1)
+	if !strings.Contains(content, "First @work entry") {
+		t.Errorf("@work entry should be preserved after abort, got:\n%s", content)
+	}
+}
+
 func TestEditDirectCleansUpEmptyHeading(t *testing.T) {
 	env := newTestEnv(t)
 
