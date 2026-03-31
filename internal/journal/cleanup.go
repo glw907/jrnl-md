@@ -47,11 +47,8 @@ func CleanupDayContent(text string) string {
 		}
 	}
 
-	// Normalize blank lines before ## headings: exactly one blank line
 	result := strings.Join(lines, "\n")
 	result = blankBeforeHeadingRe.ReplaceAllString(result, "\n\n$1")
-
-	// Ensure single trailing newline
 	result = strings.TrimRight(result, "\n") + "\n"
 
 	return result

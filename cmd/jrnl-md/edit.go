@@ -15,6 +15,8 @@ import (
 	"github.com/glw907/jrnl-md/internal/prompt"
 )
 
+const msgEmptyAbort = "No entries found after editing. Were you trying to delete all entries? Aborting — no changes made."
+
 func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, passphrase string) error {
 	return editDayFile(fj, cfg, configPath, passphrase, time.Now(), true)
 }
@@ -55,10 +57,8 @@ func editDayFile(fj *journal.FolderJournal, cfg config.Config, configPath string
 }
 
 func editDayFilePlain(path string, date time.Time, ecfg editor.Config, appendHeading bool) error {
-	// Read backup
 	backup, _ := os.ReadFile(path)
 
-	// Prepare file
 	var startLine int
 	if appendHeading {
 		var err error
@@ -82,9 +82,8 @@ func editDayFilePlain(path string, date time.Time, ecfg editor.Config, appendHea
 
 		content := string(edited)
 
-		// Empty check
 		if editor.IsEmptyContent(content) {
-			fmt.Fprintln(os.Stderr, "No entries found after editing. Were you trying to delete all entries? Aborting — no changes made.")
+			fmt.Fprintln(os.Stderr, msgEmptyAbort)
 			if backup != nil {
 				if err := atomicfile.WriteFile(path, backup, 0644); err != nil {
 					fmt.Fprintf(os.Stderr, "Warning: failed to restore backup for %s: %v\n", path, err)
@@ -93,7 +92,6 @@ func editDayFilePlain(path string, date time.Time, ecfg editor.Config, appendHea
 			return nil
 		}
 
-		// Validate
 		parseErr := journal.ParseDayContent(content, ecfg.DateFmt, ecfg.TimeFmt)
 		if parseErr != nil {
 			fmt.Fprintf(os.Stderr, "Error in edited content:\n  %s\n", parseErr)
@@ -105,7 +103,6 @@ func editDayFilePlain(path string, date time.Time, ecfg editor.Config, appendHea
 			continue
 		}
 
-		// Cleanup
 		cleaned := journal.CleanupDayContent(content)
 		if cleaned != content {
 			if err := atomicfile.WriteFile(path, []byte(cleaned), 0644); err != nil {
@@ -118,7 +115,6 @@ func editDayFilePlain(path string, date time.Time, ecfg editor.Config, appendHea
 }
 
 func editDayFileEncrypted(encPath string, date time.Time, ecfg editor.Config, appendHeading bool) error {
-	// Read and decrypt existing content
 	var existing string
 	data, err := os.ReadFile(encPath)
 	if err == nil {
@@ -147,13 +143,11 @@ func editDayFileEncrypted(encPath string, date time.Time, ecfg editor.Config, ap
 
 		content = string(editedBytes)
 
-		// Empty check
 		if editor.IsEmptyContent(content) {
-			fmt.Fprintln(os.Stderr, "No entries found after editing. Were you trying to delete all entries? Aborting — no changes made.")
+			fmt.Fprintln(os.Stderr, msgEmptyAbort)
 			return nil
 		}
 
-		// Validate
 		parseErr := journal.ParseDayContent(content, ecfg.DateFmt, ecfg.TimeFmt)
 		if parseErr != nil {
 			fmt.Fprintf(os.Stderr, "Error in edited content:\n  %s\n", parseErr)
@@ -165,10 +159,8 @@ func editDayFileEncrypted(encPath string, date time.Time, ecfg editor.Config, ap
 			continue
 		}
 
-		// Cleanup
 		content = journal.CleanupDayContent(content)
 
-		// Re-encrypt and write
 		dir := filepath.Dir(encPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("creating directory %s: %w", dir, err)
@@ -217,13 +209,11 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 
 		editedStr := string(edited)
 
-		// Empty check
 		if editor.IsEmptyContent(editedStr) {
-			fmt.Fprintln(os.Stderr, "No entries found after editing. Were you trying to delete all entries? Aborting — no changes made.")
+			fmt.Fprintln(os.Stderr, msgEmptyAbort)
 			return nil
 		}
 
-		// Validate
 		newEntries, parseErr := journal.ParseMultiDay(editedStr, cfg.Format.Date, cfg.Format.Time)
 		if parseErr != nil {
 			fmt.Fprintf(os.Stderr, "Error in edited content:\n  %s\n", parseErr)
