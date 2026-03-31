@@ -211,3 +211,59 @@ func TestFilterNotTagged(t *testing.T) {
 		t.Errorf("wrong entry: %q", result[0].Body)
 	}
 }
+
+func TestFilterDateRange(t *testing.T) {
+	t.Run("no dates", func(t *testing.T) {
+		f := Filter{}
+		start, end := f.DateRange()
+		if start != nil || end != nil {
+			t.Errorf("expected nil/nil, got %v/%v", start, end)
+		}
+	})
+
+	t.Run("start only", func(t *testing.T) {
+		st := time.Date(2026, 3, 15, 14, 30, 0, 0, time.Local)
+		f := Filter{StartDate: &st}
+		start, end := f.DateRange()
+		if start == nil {
+			t.Fatal("expected non-nil start")
+		}
+		if start.Hour() != 0 || start.Minute() != 0 || start.Day() != 15 {
+			t.Errorf("start not truncated to start of day: %v", start)
+		}
+		if end != nil {
+			t.Errorf("expected nil end, got %v", end)
+		}
+	})
+
+	t.Run("end only", func(t *testing.T) {
+		en := time.Date(2026, 3, 20, 10, 0, 0, 0, time.Local)
+		f := Filter{EndDate: &en}
+		start, end := f.DateRange()
+		if start != nil {
+			t.Errorf("expected nil start, got %v", start)
+		}
+		if end == nil {
+			t.Fatal("expected non-nil end")
+		}
+		if end.Hour() != 23 || end.Minute() != 59 || end.Day() != 20 {
+			t.Errorf("end not expanded to end of day: %v", end)
+		}
+	})
+
+	t.Run("both dates", func(t *testing.T) {
+		st := time.Date(2026, 3, 15, 14, 0, 0, 0, time.Local)
+		en := time.Date(2026, 3, 20, 10, 0, 0, 0, time.Local)
+		f := Filter{StartDate: &st, EndDate: &en}
+		start, end := f.DateRange()
+		if start == nil || end == nil {
+			t.Fatal("expected non-nil start and end")
+		}
+		if start.Day() != 15 || start.Hour() != 0 {
+			t.Errorf("start wrong: %v", start)
+		}
+		if end.Day() != 20 || end.Hour() != 23 {
+			t.Errorf("end wrong: %v", end)
+		}
+	})
+}

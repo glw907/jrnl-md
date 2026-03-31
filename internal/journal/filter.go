@@ -55,6 +55,23 @@ func (f Filter) Apply(entries []Entry) []Entry {
 	return result
 }
 
+// DateRange returns day-level boundaries for file selection.
+// StartDate is truncated to start-of-day; EndDate is expanded to end-of-day.
+// Either may be nil if the corresponding filter field is unset.
+func (f Filter) DateRange() (start, end *time.Time) {
+	if f.StartDate != nil {
+		sod := time.Date(f.StartDate.Year(), f.StartDate.Month(), f.StartDate.Day(),
+			0, 0, 0, 0, f.StartDate.Location())
+		start = &sod
+	}
+	if f.EndDate != nil {
+		eod := time.Date(f.EndDate.Year(), f.EndDate.Month(), f.EndDate.Day(),
+			23, 59, 59, 999999999, f.EndDate.Location())
+		end = &eod
+	}
+	return
+}
+
 func (f Filter) isEmpty() bool {
 	return len(f.Tags) == 0 &&
 		len(f.NotTags) == 0 &&
