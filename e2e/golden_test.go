@@ -84,8 +84,11 @@ var goldenTests = []goldenTest{
 	{slug: "default-hour-minute", mdArgs: []string{"-n", "99"}, normalize: normalizeDefault, seed: seedGoldenDefaultHourMinute},
 	{slug: "tag-symbols-hash", mdArgs: []string{"--tags"}, normalize: normalizeTags, seed: seedGoldenHashTags},
 	// --- ANSI Color Tests ---
-	{slug: "color-tags-cyan", mdArgs: []string{"-n", "99"}, ansi: true, seed: seedGoldenANSI},
-	{slug: "color-tags-list", mdArgs: []string{"--tags"}, ansi: true, seed: seedGoldenANSI},
+	// Note: ANSI codes are suppressed when stdout is not a TTY (test harness).
+	// These tests verify that highlight/color config is accepted and output is
+	// still correct, but cannot verify actual ANSI escape sequences.
+	{slug: "color-tags-cyan", mdArgs: []string{"-n", "99"}, normalize: normalizeDefault, seed: seedGoldenANSI},
+	{slug: "color-tags-list", mdArgs: []string{"--tags"}, normalize: normalizeTags, seed: seedGoldenANSI},
 	// --- Multiple Journals ---
 	{slug: "multi-list", mdArgs: []string{"--list"}, normalize: normalizeList, seed: seedGoldenMulti},
 	{slug: "multi-read", mdArgs: []string{"work:", "-n", "99"}, jrnlArgs: []string{"work:", "-n", "99"}, normalize: normalizeDefault, seed: seedGoldenMulti},
@@ -156,7 +159,7 @@ func TestGolden(t *testing.T) {
 			// 4. Run jrnl-md
 			stdout, _ := run(t, env, tt.mdArgs...)
 
-			// 5. Normalize
+			// 5. Normalize actual output (golden was already normalized during capture)
 			actual := stdout
 			if !tt.ansi {
 				actual = stripANSI(actual)
@@ -164,10 +167,6 @@ func TestGolden(t *testing.T) {
 			actual = normalizeUniversal(actual)
 			if tt.normalize != nil {
 				actual = tt.normalize(actual)
-			}
-			golden = normalizeUniversal(golden)
-			if tt.normalize != nil {
-				golden = tt.normalize(golden)
 			}
 
 			// 6. Compare

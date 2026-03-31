@@ -503,18 +503,55 @@ func normalizeTxt(s string) string {
 }
 
 // normalizeMd normalizes --format md / --export md output.
-// Both produce `### DATE TIME [Title]` headings but jrnl appends the title
-// inline whereas jrnl-md does not. Strip text after the timestamp in headings.
+// jrnl puts title inline in ### heading; jrnl-md puts body on next line.
+// Extract (datetime, body) tuples and rebuild canonically.
 func normalizeMd(s string) string {
 	s = normalizeUniversal(s)
-	// Heading lines: ### YYYY-MM-DD HH:MM [rest...]  — keep only timestamp.
-	headingRe := regexp.MustCompile(`(?m)^(#{1,6} \d{4}-\d{2}-\d{2} \d{2}:\d{2}).*$`)
-	s = headingRe.ReplaceAllString(s, "$1")
-	// Strip trailing " *" anywhere.
+	// Strip stars
 	s = regexp.MustCompile(`(?m) \*$`).ReplaceAllString(s, "")
-	// Remove jrnl's trailing ` ` lines (single space) left after body.
+	// Remove jrnl's trailing single-space lines
 	s = regexp.MustCompile(`(?m)^ $`).ReplaceAllString(s, "")
-	return s
+
+	entryHeadingRe := regexp.MustCompile(`^#{3}\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})(.*)$`)
+	sectionHeadingRe := regexp.MustCompile(`^#{1,2}\s+`)
+
+	type mdEntry struct {
+		datetime string
+		body     string
+	}
+	var entries []mdEntry
+	var cur *mdEntry
+
+	for _, line := range strings.Split(s, "\n") {
+		if m := entryHeadingRe.FindStringSubmatch(line); m != nil {
+			if cur != nil {
+				cur.body = strings.TrimSpace(cur.body)
+				entries = append(entries, *cur)
+			}
+			// m[2] may contain inline title (jrnl) or be empty (jrnl-md)
+			title := strings.TrimSpace(m[2])
+			cur = &mdEntry{datetime: m[1], body: title}
+		} else if sectionHeadingRe.MatchString(line) {
+			// Year/month headings — skip
+			continue
+		} else if cur != nil && strings.TrimSpace(line) != "" {
+			if cur.body == "" {
+				cur.body = strings.TrimSpace(line)
+			} else {
+				cur.body += " " + strings.TrimSpace(line)
+			}
+		}
+	}
+	if cur != nil {
+		cur.body = strings.TrimSpace(cur.body)
+		entries = append(entries, *cur)
+	}
+
+	var out []string
+	for _, e := range entries {
+		out = append(out, "### "+e.datetime+" "+e.body)
+	}
+	return strings.Join(out, "\n")
 }
 
 // normalizeTags normalizes --tags output.

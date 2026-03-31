@@ -110,7 +110,8 @@ func buildFilter(f *flags, tagArgs []string, cfg config.Config) (journal.Filter,
 		if err != nil {
 			return flt, fmt.Errorf("parsing --from date: %w", err)
 		}
-		flt.StartDate = &start
+		startOfDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.Local)
+		flt.StartDate = &startOfDay
 	}
 
 	if f.to != "" {
