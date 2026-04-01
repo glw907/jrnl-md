@@ -138,6 +138,10 @@ func TestCompat_ShortListing(t *testing.T) {
 	if nonEmpty < 3 {
 		t.Errorf("expected at least 3 non-empty lines for --short with 3 entries, got %d:\n%s", nonEmpty, stdout)
 	}
+	// Short listing should NOT contain full entry bodies (markdown heading lines)
+	if strings.Contains(stdout, "## [") {
+		t.Errorf("expected --short to not show markdown entry headings, got: %q", stdout)
+	}
 }
 
 // --- Filters ---
@@ -267,6 +271,13 @@ func TestCompat_ExcludeTag(t *testing.T) {
 	if strings.Contains(stdout, "First @work entry") {
 		t.Errorf("expected @work entry NOT in output, got: %q", stdout)
 	}
+	// Remaining entries should be present
+	if !strings.Contains(stdout, "Starred afternoon entry") {
+		t.Errorf("expected untagged starred entry in output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "Mid-month @personal") {
+		t.Errorf("expected @personal entry in output, got: %q", stdout)
+	}
 }
 
 // TestCompat_ExcludeStarred: jrnl --not-starred shows only unstarred entries.
@@ -280,6 +291,13 @@ func TestCompat_ExcludeStarred(t *testing.T) {
 	assertEntriesFound(t, stderr, 2)
 	if strings.Contains(stdout, "Starred afternoon entry") {
 		t.Errorf("expected starred entry NOT in output, got: %q", stdout)
+	}
+	// Remaining entries should be present
+	if !strings.Contains(stdout, "First @work entry") {
+		t.Errorf("expected @work entry in output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "Mid-month @personal") {
+		t.Errorf("expected @personal entry in output, got: %q", stdout)
 	}
 }
 
@@ -469,6 +487,9 @@ func TestCompat_ListJournals(t *testing.T) {
 	if !strings.Contains(stdout, "default") {
 		t.Errorf("expected 'default' journal in --list output, got: %q", stdout)
 	}
+	if !strings.Contains(stdout, env.journalDir) {
+		t.Errorf("expected journal path %q in --list output, got: %q", env.journalDir, stdout)
+	}
 }
 
 // TestCompat_MultipleJournals: jrnl work: text writes to the named journal.
@@ -491,6 +512,20 @@ func TestCompat_MultipleJournals(t *testing.T) {
 	content := dayFileContent(t, workDir, today)
 	if !strings.Contains(content, "Work journal entry.") {
 		t.Errorf("expected entry body in work journal day file, got:\n%s", content)
+	}
+
+	// Write to default journal too, then verify read isolation
+	defaultDir := env.dir
+	_ = defaultDir // env has no journalDir in multi mode; use direct run
+	run(t, env, "Default journal entry.")
+
+	// Read from work journal — should only see work entry
+	stdoutWork, _ := run(t, env, "work:", "--num", "99")
+	if !strings.Contains(stdoutWork, "Work journal entry.") {
+		t.Errorf("expected work entry when reading work journal, got: %q", stdoutWork)
+	}
+	if strings.Contains(stdoutWork, "Default journal entry.") {
+		t.Errorf("expected default entry NOT in work journal output, got: %q", stdoutWork)
 	}
 }
 
