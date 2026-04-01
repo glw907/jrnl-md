@@ -905,3 +905,86 @@ func TestCompat_TagHighlighting(t *testing.T) {
 		t.Errorf("expected @work tag to appear in highlighted output, got: %q", stdout)
 	}
 }
+
+// TestCompat_Linewrap: linewrap config wraps body text to the specified width.
+func TestCompat_Linewrap(t *testing.T) {
+	env := newTestEnv(t)
+	today := time.Now()
+	longBody := "This is a long entry body that should be wrapped when the linewrap config is set to a small value like forty characters."
+	writeDayFile(t, env.journalDir, today,
+		fmt.Sprintf("# %s\n\n## [09:00 AM]\n\n%s\n", today.Format("2006-01-02 Monday"), longBody))
+
+	// Patch config to set linewrap = 40
+	data, err := os.ReadFile(env.configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patched := strings.Replace(string(data), "linewrap = 0", "linewrap = 40", 1)
+	if err := os.WriteFile(env.configPath, []byte(patched), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, _ := runAll(t, env)
+
+	// Body lines should be wrapped — check that the long body was split
+	if strings.Contains(stdout, longBody) {
+		t.Errorf("expected long body to be wrapped, but found it on a single line")
+	}
+	// The body content should still be present (just wrapped)
+	if !strings.Contains(stdout, "long entry body") {
+		t.Errorf("expected entry body in wrapped output, got: %q", stdout)
+	}
+}
+
+// TestCompat_EditorEnvFallback: when config editor is empty, $VISUAL is used.
+func TestCompat_EditorEnvFallback(t *testing.T) {
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	// Config editor is already "" from testConfigHeader.
+	// Set $VISUAL to a mock editor.
+	editorPath := writeMockEditor(t, env.dir, "First @work entry", "Env-edited entry")
+	cmd := newCmd(env, "--edit", "--num", "99")
+	cmd.Env = append(os.Environ(), "VISUAL="+editorPath)
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("binary failed: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	march1 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local)
+	content := dayFileContent(t, env.journalDir, march1)
+	if !strings.Contains(content, "Env-edited entry") {
+		t.Errorf("expected $VISUAL editor to be used, got:\n%s", content)
+	}
+}
+
+// TestCompat_Completion: jrnl-md completion bash outputs a bash completion script.
+func TestCompat_Completion(t *testing.T) {
+	cmd := exec.Command(binary, "completion", "bash")
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("completion subcommand failed: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	stdout := outBuf.String()
+	if !strings.Contains(stdout, "complete") && !strings.Contains(stdout, "compgen") {
+		t.Errorf("expected bash completion script, got: %q", stdout[:min(len(stdout), 200)])
+	}
+}
+
+// TestCompat_ExportAlias: jrnl --export is an alias for --format.
+func TestCompat_ExportAlias(t *testing.T) {
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	stdoutFormat, _ := runAll(t, env, "--format", "json")
+	stdoutExport, _ := runAll(t, env, "--export", "json")
+
+	if stdoutFormat != stdoutExport {
+		t.Errorf("--export and --format should produce identical output.\n--format:\n%s\n--export:\n%s", stdoutFormat, stdoutExport)
+	}
+}
