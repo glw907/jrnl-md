@@ -22,8 +22,9 @@ func editEntry(fj *journal.FolderJournal, cfg config.Config, configPath string, 
 }
 
 func editDayFile(fj *journal.FolderJournal, cfg config.Config, configPath string, passphrase string, date time.Time, appendHeading bool) error {
+	cfg.General.Editor = config.ResolveEditor(cfg)
 	if cfg.General.Editor == "" {
-		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
+		return fmt.Errorf("no editor configured. Set editor in %s or $VISUAL/$EDITOR", configPath)
 	}
 
 	path := fj.DayFilePath(date)
@@ -67,7 +68,19 @@ func editDayFilePlain(path string, date time.Time, ecfg editor.Config, appendHea
 			return fmt.Errorf("preparing day file: %w", err)
 		}
 	} else {
-		startLine = 1
+		data, err := os.ReadFile(path)
+		if err != nil {
+			startLine = 1
+		} else {
+			original := string(data)
+			content := editor.EnsureBlankLineAfterLastHeading(original)
+			if content != original {
+				if err := atomicfile.WriteFile(path, []byte(content), 0644); err != nil {
+					return fmt.Errorf("writing day file: %w", err)
+				}
+			}
+			startLine = editor.EndOfContent(content)
+		}
 	}
 
 	for {
@@ -132,7 +145,8 @@ func editDayFileEncrypted(encPath string, date time.Time, ecfg editor.Config, ap
 	if appendHeading {
 		content, startLine = editor.PrepareEncryptedContent(content, date, ecfg)
 	} else {
-		startLine = 1
+		content = editor.EnsureBlankLineAfterLastHeading(content)
+		startLine = editor.EndOfContent(content)
 	}
 
 	for {
@@ -187,8 +201,9 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 		return nil
 	}
 
+	cfg.General.Editor = config.ResolveEditor(cfg)
 	if cfg.General.Editor == "" {
-		return fmt.Errorf("no editor configured. Set editor in %s", configPath)
+		return fmt.Errorf("no editor configured. Set editor in %s or $VISUAL/$EDITOR", configPath)
 	}
 
 	// Single-day redirect: if all entries are from one day and that day has no
@@ -200,9 +215,12 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 
 	// Multi-day or partial-day: temp file round-trip
 	content := journal.FormatEntries(entries, cfg.Format.Date, cfg.Format.Time)
+	var tmpPath string
 
 	for {
-		edited, err := editor.WriteTempAndEdit(cfg.General.Editor, content, 1)
+		var edited []byte
+		var err error
+		edited, tmpPath, err = editor.WriteTempAndEditKeep(cfg.General.Editor, content, 1)
 		if err != nil {
 			return err
 		}
@@ -210,6 +228,7 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 		editedStr := string(edited)
 
 		if editor.IsEmptyContent(editedStr) {
+			os.Remove(tmpPath)
 			fmt.Fprintln(os.Stderr, msgEmptyAbort)
 			return nil
 		}
@@ -218,20 +237,23 @@ func editFiltered(fj *journal.FolderJournal, cfg config.Config, configPath strin
 		if parseErr != nil {
 			fmt.Fprintf(os.Stderr, "Error in edited content:\n  %s\n", parseErr)
 			if !prompt.YesNo(os.Stdin, os.Stderr, "Re-open editor?") {
-				fmt.Fprintln(os.Stderr, "Edits discarded. Journal unchanged.")
+				fmt.Fprintf(os.Stderr, "Edits saved to %s\n", tmpPath)
+				fmt.Fprintln(os.Stderr, "Journal unchanged.")
 				return nil
 			}
 			content = editedStr
+			os.Remove(tmpPath)
 			continue
 		}
-
 		if err := fj.DeleteEntries(entries); err != nil {
-			return fmt.Errorf("removing old entries: %w", err)
+			return fmt.Errorf("removing old entries (edits saved to %s): %w", tmpPath, err)
 		}
 
 		if err := fj.AddEntries(newEntries); err != nil {
-			return fmt.Errorf("adding edited entries: %w", err)
+			return fmt.Errorf("adding edited entries (edits saved to %s): %w", tmpPath, err)
 		}
+
+		os.Remove(tmpPath)
 
 		n := len(newEntries)
 		switch {

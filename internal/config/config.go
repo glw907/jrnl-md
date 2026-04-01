@@ -93,6 +93,18 @@ func ResolvedJournalConfig(global Config, j JournalConfig) Config {
 	return result
 }
 
+// ResolveEditor returns the editor command from config, falling back to
+// $VISUAL then $EDITOR environment variables. Returns "" if none is set.
+func ResolveEditor(cfg Config) string {
+	if cfg.General.Editor != "" {
+		return cfg.General.Editor
+	}
+	if v := os.Getenv("VISUAL"); v != "" {
+		return v
+	}
+	return os.Getenv("EDITOR")
+}
+
 func Load(path string) (Config, error) {
 	cfg := Default()
 

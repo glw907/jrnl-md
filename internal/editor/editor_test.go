@@ -30,7 +30,7 @@ func TestIsEmptyContent(t *testing.T) {
 func TestPrepareEncryptedNew(t *testing.T) {
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
 	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
-	content, lineCount := PrepareEncryptedContent("", date, cfg)
+	content, cursorLine := PrepareEncryptedContent("", date, cfg)
 
 	if !strings.HasPrefix(content, "# 2026-03-29 Sunday") {
 		t.Errorf("missing day heading, got: %q", content[:40])
@@ -38,8 +38,16 @@ func TestPrepareEncryptedNew(t *testing.T) {
 	if !strings.Contains(content, "## [02:30 PM]") {
 		t.Errorf("missing entry heading")
 	}
-	if lineCount < 4 {
-		t.Errorf("expected at least 4 lines, got %d", lineCount)
+	// Cursor should land on the blank line after the entry heading.
+	lines := strings.Split(content, "\n")
+	if cursorLine < 1 || cursorLine > len(lines) {
+		t.Fatalf("cursorLine %d out of range (content has %d lines)", cursorLine, len(lines))
+	}
+	if lines[cursorLine-1] != "" {
+		t.Errorf("cursor line %d should be blank, got %q", cursorLine, lines[cursorLine-1])
+	}
+	if cursorLine < 2 || !strings.HasPrefix(lines[cursorLine-2], "## [") {
+		t.Errorf("line before cursor should be entry heading, got %q", lines[cursorLine-2])
 	}
 }
 
@@ -73,13 +81,9 @@ func TestPrepareDayFileNew(t *testing.T) {
 
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
 	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
-	lineCount, err := PrepareDayFile(path, date, cfg)
+	cursorLine, err := PrepareDayFile(path, date, cfg)
 	if err != nil {
 		t.Fatalf("PrepareDayFile failed: %v", err)
-	}
-
-	if lineCount < 4 {
-		t.Errorf("expected at least 4 lines, got %d", lineCount)
 	}
 
 	data, err := os.ReadFile(path)
@@ -94,6 +98,18 @@ func TestPrepareDayFileNew(t *testing.T) {
 	if !strings.Contains(content, "## [02:30 PM]") {
 		t.Errorf("missing entry heading, got: %q", content)
 	}
+
+	// Cursor should land on the blank line after the entry heading.
+	lines := strings.Split(content, "\n")
+	if cursorLine < 1 || cursorLine > len(lines) {
+		t.Fatalf("cursorLine %d out of range (content has %d lines)", cursorLine, len(lines))
+	}
+	if lines[cursorLine-1] != "" {
+		t.Errorf("cursor line %d should be blank, got %q", cursorLine, lines[cursorLine-1])
+	}
+	if cursorLine < 2 || !strings.HasPrefix(lines[cursorLine-2], "## [") {
+		t.Errorf("line before cursor should be entry heading, got %q", lines[cursorLine-2])
+	}
 }
 
 func TestPrepareDayFileExisting(t *testing.T) {
@@ -107,13 +123,9 @@ func TestPrepareDayFileExisting(t *testing.T) {
 
 	date := time.Date(2026, 3, 29, 14, 30, 0, 0, time.Local)
 	cfg := Config{DateFmt: "2006-01-02", TimeFmt: "03:04 PM"}
-	lineCount, err := PrepareDayFile(path, date, cfg)
+	cursorLine, err := PrepareDayFile(path, date, cfg)
 	if err != nil {
 		t.Fatalf("PrepareDayFile failed: %v", err)
-	}
-
-	if lineCount < 6 {
-		t.Errorf("expected at least 6 lines, got %d", lineCount)
 	}
 
 	data, err := os.ReadFile(path)
@@ -130,6 +142,138 @@ func TestPrepareDayFileExisting(t *testing.T) {
 	}
 	if strings.Count(content, "# 2026-03-29") != 1 {
 		t.Error("should have exactly one day title")
+	}
+
+	// Cursor should land on the blank line after the new entry heading.
+	lines := strings.Split(content, "\n")
+	if cursorLine < 1 || cursorLine > len(lines) {
+		t.Fatalf("cursorLine %d out of range (content has %d lines)", cursorLine, len(lines))
+	}
+	if lines[cursorLine-1] != "" {
+		t.Errorf("cursor line %d should be blank, got %q", cursorLine, lines[cursorLine-1])
+	}
+	if cursorLine < 2 || !strings.HasPrefix(lines[cursorLine-2], "## [") {
+		t.Errorf("line before cursor should be entry heading, got %q", lines[cursorLine-2])
+	}
+}
+
+func TestEndOfContent(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{
+			name:  "empty body with blank line after heading",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
+			want:  5, // line after blank separator, where body content goes
+		},
+		{
+			name:  "empty body with two blank lines after heading",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n\n",
+			want:  5, // line after blank separator
+		},
+		{
+			name:  "entry with body",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nSome text.\n",
+			want:  countLines("# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nSome text.\n"),
+		},
+		{
+			name:  "two entries, second empty",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nMorning.\n\n## [02:00 PM]\n\n",
+			want:  9, // line after blank separator following second heading
+		},
+		{
+			name:  "two entries both with body",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nMorning.\n\n## [02:00 PM]\n\nAfternoon.\n",
+			want:  countLines("# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nMorning.\n\n## [02:00 PM]\n\nAfternoon.\n"),
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EndOfContent(tt.input)
+			if got != tt.want {
+				t.Errorf("EndOfContent() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEnsureBlankLineAfterLastHeading(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "heading without trailing blank line",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n",
+			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
+		},
+		{
+			name:  "heading with one trailing blank line",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
+			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
+		},
+		{
+			name:  "entry with body unchanged",
+			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nSome text.\n",
+			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\nSome text.\n",
+		},
+		{
+			name:  "empty string unchanged",
+			input: "",
+			want:  "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EnsureBlankLineAfterLastHeading(tt.input)
+			if got != tt.want {
+				t.Errorf("EnsureBlankLineAfterLastHeading() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestEndOfContentRequiresBlankLine verifies that EndOfContent positions the
+// cursor correctly only after EnsureBlankLineAfterLastHeading has been called.
+// This is the exact scenario from the desktop launcher: jrnl-md "" creates a
+// file ending with "## [time]\n" (no blank line), then --edit opens it.
+func TestEndOfContentRequiresBlankLine(t *testing.T) {
+	// Actual file content after `jrnl-md ""` — no blank line after heading
+	raw := "# 2026-04-01 Wednesday\n\n## [11:18 AM]\n"
+
+	// Without EnsureBlankLineAfterLastHeading, cursor lands beyond EOF
+	rawLines := len(strings.Split(raw, "\n"))
+	cursorRaw := EndOfContent(raw)
+	if cursorRaw <= rawLines {
+		t.Errorf("expected cursor %d to exceed file lines %d on raw file (this is the bug)", cursorRaw, rawLines)
+	}
+
+	// After ensuring blank lines, cursor lands on a valid line for body content
+	fixed := EnsureBlankLineAfterLastHeading(raw)
+	fixedLines := strings.Split(fixed, "\n")
+	cursorFixed := EndOfContent(fixed)
+	if cursorFixed < 1 || cursorFixed > len(fixedLines) {
+		t.Fatalf("cursor %d out of range for %d lines", cursorFixed, len(fixedLines))
+	}
+	// Cursor line should be blank (ready for typing)
+	if fixedLines[cursorFixed-1] != "" {
+		t.Errorf("cursor line %d should be blank, got %q", cursorFixed, fixedLines[cursorFixed-1])
+	}
+	// Line before cursor should be blank separator
+	if cursorFixed < 3 || fixedLines[cursorFixed-2] != "" {
+		t.Errorf("line %d (before cursor) should be blank separator, got %q", cursorFixed-1, fixedLines[cursorFixed-2])
+	}
+	// Two lines before cursor should be the heading
+	if !strings.HasPrefix(fixedLines[cursorFixed-3], "## [") {
+		t.Errorf("line %d should be entry heading, got %q", cursorFixed-2, fixedLines[cursorFixed-3])
 	}
 }
 

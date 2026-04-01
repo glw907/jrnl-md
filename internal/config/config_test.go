@@ -163,3 +163,42 @@ func TestResolvedJournalConfig(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveEditor(t *testing.T) {
+	t.Run("config editor takes precedence", func(t *testing.T) {
+		cfg := Default()
+		cfg.General.Editor = "hx"
+		t.Setenv("VISUAL", "vim")
+		t.Setenv("EDITOR", "nano")
+		if got := ResolveEditor(cfg); got != "hx" {
+			t.Errorf("expected hx, got %q", got)
+		}
+	})
+
+	t.Run("falls back to VISUAL", func(t *testing.T) {
+		cfg := Default()
+		t.Setenv("VISUAL", "vim")
+		t.Setenv("EDITOR", "nano")
+		if got := ResolveEditor(cfg); got != "vim" {
+			t.Errorf("expected vim, got %q", got)
+		}
+	})
+
+	t.Run("falls back to EDITOR", func(t *testing.T) {
+		cfg := Default()
+		t.Setenv("VISUAL", "")
+		t.Setenv("EDITOR", "nano")
+		if got := ResolveEditor(cfg); got != "nano" {
+			t.Errorf("expected nano, got %q", got)
+		}
+	})
+
+	t.Run("returns empty when nothing set", func(t *testing.T) {
+		cfg := Default()
+		t.Setenv("VISUAL", "")
+		t.Setenv("EDITOR", "")
+		if got := ResolveEditor(cfg); got != "" {
+			t.Errorf("expected empty, got %q", got)
+		}
+	})
+}
