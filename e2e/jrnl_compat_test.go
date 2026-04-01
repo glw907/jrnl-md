@@ -544,6 +544,51 @@ func TestCompat_ExportText(t *testing.T) {
 	}
 }
 
+// TestCompat_ExportXML: jrnl --format xml outputs valid XML with expected structure.
+func TestCompat_ExportXML(t *testing.T) {
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	stdout, _ := runAll(t, env, "--format", "xml")
+
+	if !strings.Contains(stdout, "<?xml") {
+		t.Errorf("expected XML declaration in --format xml output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "<journal>") {
+		t.Errorf("expected <journal> root element, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "<entry") {
+		t.Errorf("expected <entry> elements, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "First @work entry") {
+		t.Errorf("expected entry body in XML output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "<tag") {
+		t.Errorf("expected <tag> elements, got: %q", stdout)
+	}
+}
+
+// TestCompat_ExportYAML: jrnl --format yaml outputs YAML with expected structure.
+func TestCompat_ExportYAML(t *testing.T) {
+	env := newTestEnv(t)
+	seedCompatJournal(t, env)
+
+	stdout, _ := runAll(t, env, "--format", "yaml")
+
+	if !strings.Contains(stdout, "tags:") {
+		t.Errorf("expected 'tags:' section in YAML output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "entries:") {
+		t.Errorf("expected 'entries:' section in YAML output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "First @work entry") {
+		t.Errorf("expected entry body in YAML output, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "starred:") {
+		t.Errorf("expected 'starred:' field per entry, got: %q", stdout)
+	}
+}
+
 // TestCompat_ExportToFile: jrnl --file path writes output to file instead of stdout.
 func TestCompat_ExportToFile(t *testing.T) {
 	env := newTestEnv(t)
