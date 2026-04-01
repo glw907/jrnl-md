@@ -449,6 +449,13 @@ func TestCompat_ChangeTime(t *testing.T) {
 	if !strings.Contains(content, "Entry to reschedule") {
 		t.Errorf("expected rescheduled entry in new day file, got:\n%s", content)
 	}
+	// Original day file should no longer contain the moved entry
+	if dayFileExists(t, env.journalDir, day1) {
+		origContent := dayFileContent(t, env.journalDir, day1)
+		if strings.Contains(origContent, "Entry to reschedule") {
+			t.Errorf("expected moved entry to be removed from original day file, got:\n%s", origContent)
+		}
+	}
 }
 
 // --- Journals ---
