@@ -213,12 +213,12 @@ func TestEnsureBlankLineAfterLastHeading(t *testing.T) {
 		{
 			name:  "heading without trailing blank line",
 			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n",
-			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
+			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n\n",
 		},
 		{
 			name:  "heading with one trailing blank line",
 			input: "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
-			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n",
+			want:  "# 2026-04-01 Wednesday\n\n## [09:00 AM]\n\n\n",
 		},
 		{
 			name:  "entry with body unchanged",

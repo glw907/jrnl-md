@@ -184,9 +184,12 @@ func EnsureBlankLineAfterLastHeading(text string) string {
 		if !strings.HasPrefix(strings.TrimSpace(lines[i]), "## [") {
 			return text // last content isn't a heading, nothing to do
 		}
-		// Count trailing newlines after the heading
-		trailing := len(lines) - 1 - i // number of empty lines after heading
-		need := 2                       // blank separator + cursor line
+		// Count trailing newlines after the heading.
+		// strings.Split counts the artifact from a final \n as an element,
+		// so we need 3: blank separator + cursor line + trailing newline
+		// that makes the cursor line real in the editor.
+		trailing := len(lines) - 1 - i
+		need := 3
 		if trailing < need {
 			return text + strings.Repeat("\n", need-trailing)
 		}
