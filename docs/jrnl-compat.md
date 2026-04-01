@@ -83,12 +83,13 @@ If you rely on jrnl's title field in exports or integrations, note that jrnl-md'
 | Export to file | `--file path` | same |
 | Import | `--import file` | same *(Pass 4)* |
 | Multiple journals | `jrnl work: text` | same |
+| Editor from env | `$VISUAL` / `$EDITOR` fallback | same |
 | Per-journal config | editor, template, tag_symbols | same *(Pass 5)* |
 | `default_hour` / `default_minute` | config keys | same *(Pass 5)* |
 | Tag highlighting | `highlight`, `colors.tags` | same |
 | Line wrapping | `linewrap` | same |
 | Templates | `template` | same |
-| Shell completion | `--completion` | same |
+| Shell completion | `--completion` | `jrnl-md completion {bash,zsh,fish,powershell}` (subcommand) |
 
 ### Not Implemented
 
@@ -100,6 +101,17 @@ If you rely on jrnl's title field in exports or integrations, note that jrnl-md'
 | GPG encryption | Uses age instead |
 | `--config-override key=value` | Not implemented |
 | `--debug` flag | Not implemented |
+| `-today-in-history` filter | Shows entries from today's date in prior years; not implemented |
+| `-month DATE` filter | Shows entries in a given month across years; not implemented |
+| `-day DATE` filter | Shows entries on a day-of-month across months; not implemented |
+| `-year DATE` filter | Shows entries in a specific year; not implemented |
+| `-tagged` positive filter | Shows only entries with any tag; not implemented (use `--not-tagged` to exclude) |
+| `--format fancy` / `boxed` | Unicode box-drawing display format; not implemented |
+| `--diagnostic` flag | Prints debug info for bug reports; not implemented |
+| `display_format` config key | Sets default output format; not implemented (always `pretty`) |
+| `timeformat` config key | Custom timestamp storage format; not implemented (uses fixed Go layouts) |
+| `--import --format TYPE` | Specifies import source format; jrnl-md always expects its own markdown format |
+| YAML directory export | `--file dir/` with `--format yaml` exports one file per entry; not implemented |
 
 ## Config Key Reference
 
