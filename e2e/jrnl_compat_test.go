@@ -521,33 +521,49 @@ func TestCompat_ExportJSON(t *testing.T) {
 	}
 }
 
-// TestCompat_ExportMarkdown: jrnl --format md outputs markdown.
+// TestCompat_ExportMarkdown: jrnl --format md outputs markdown with headings and all entries.
 func TestCompat_ExportMarkdown(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
 	stdout, _ := runAll(t, env, "--format", "md")
 
-	if !strings.Contains(stdout, "## ") {
-		t.Errorf("expected markdown entry headings (## ) in --format md output, got: %q", stdout)
+	// All 3 entries should be present
+	for _, body := range []string{"First @work entry", "Starred afternoon entry", "Mid-month @personal"} {
+		if !strings.Contains(stdout, body) {
+			t.Errorf("expected %q in --format md output, got: %q", body, stdout)
+		}
 	}
-	if !strings.Contains(stdout, "First @work entry") {
-		t.Errorf("expected entry body in --format md output, got: %q", stdout)
+	// Should have day-level headings
+	if !strings.Contains(stdout, "# 2026") {
+		t.Errorf("expected year-level heading in markdown output, got: %q", stdout)
+	}
+	// Should have entry-level headings with time
+	if !strings.Contains(stdout, "##") {
+		t.Errorf("expected entry headings (##) in markdown output, got: %q", stdout)
 	}
 }
 
-// TestCompat_ExportText: jrnl --format txt outputs plain text.
+// TestCompat_ExportText: jrnl --format txt outputs bracket-delimited entries.
 func TestCompat_ExportText(t *testing.T) {
 	env := newTestEnv(t)
 	seedCompatJournal(t, env)
 
 	stdout, _ := runAll(t, env, "--format", "txt")
 
-	if !strings.Contains(stdout, "First @work entry") {
-		t.Errorf("expected entry body in --format txt output, got: %q", stdout)
+	// All 3 entries should be present
+	for _, body := range []string{"First @work entry", "Starred afternoon entry", "Mid-month @personal"} {
+		if !strings.Contains(stdout, body) {
+			t.Errorf("expected %q in --format txt output, got: %q", body, stdout)
+		}
 	}
-	if strings.Contains(stdout, "{") {
-		t.Errorf("expected plain text output (no JSON/markdown), got: %q", stdout)
+	// Text format uses [DATE TIME] brackets
+	if !strings.Contains(stdout, "[2026-03-01") {
+		t.Errorf("expected [DATE ...] bracket format in txt output, got: %q", stdout)
+	}
+	// Should not contain markdown headings
+	if strings.Contains(stdout, "# ") {
+		t.Errorf("expected plain text (no markdown headings), got: %q", stdout)
 	}
 }
 
@@ -602,14 +618,26 @@ func TestCompat_ExportToFile(t *testing.T) {
 	seedCompatJournal(t, env)
 
 	outPath := filepath.Join(env.dir, "export.json")
-	runAll(t, env, "--format", "json", "--file", outPath)
+	stdout, _ := runAll(t, env, "--format", "json", "--file", outPath)
+
+	// Stdout should be empty — output went to file
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("expected empty stdout when using --file, got: %q", stdout)
+	}
 
 	data, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("expected output file at %s: %v", outPath, err)
 	}
-	if !strings.Contains(string(data), "entries") {
-		t.Errorf("expected JSON 'entries' key in exported file, got: %q", string(data))
+	// Validate it's real JSON with entries
+	var result struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("exported file is not valid JSON: %v", err)
+	}
+	if len(result.Entries) != 3 {
+		t.Errorf("expected 3 entries in exported JSON, got %d", len(result.Entries))
 	}
 }
 
