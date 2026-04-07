@@ -54,36 +54,31 @@ func (f Filter) Match(day Day, tagSyms string) bool {
 			return false
 		}
 	}
-	if len(f.Tags) > 0 {
+	if len(f.Tags) > 0 || len(f.NotTags) > 0 {
 		tags := extractTags(day.Body, tagSyms)
 		tagSet := make(map[string]bool, len(tags))
 		for _, tag := range tags {
 			tagSet[tag] = true
 		}
-		if f.AndTags {
-			for _, want := range f.Tags {
-				if !tagSet[want] {
+		if len(f.Tags) > 0 {
+			if f.AndTags {
+				for _, want := range f.Tags {
+					if !tagSet[want] {
+						return false
+					}
+				}
+			} else {
+				found := false
+				for _, want := range f.Tags {
+					if tagSet[want] {
+						found = true
+						break
+					}
+				}
+				if !found {
 					return false
 				}
 			}
-		} else {
-			found := false
-			for _, want := range f.Tags {
-				if tagSet[want] {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
-		}
-	}
-	if len(f.NotTags) > 0 {
-		tags := extractTags(day.Body, tagSyms)
-		tagSet := make(map[string]bool, len(tags))
-		for _, tag := range tags {
-			tagSet[tag] = true
 		}
 		for _, excl := range f.NotTags {
 			if tagSet[excl] {
@@ -94,8 +89,6 @@ func (f Filter) Match(day Day, tagSyms string) bool {
 	return true
 }
 
-// extractTags returns all tags found in body using the configured symbol characters.
-// Tags are symbol + word characters (letters, digits, underscore).
 func extractTags(body, tagSyms string) []string {
 	if tagSyms == "" {
 		return nil

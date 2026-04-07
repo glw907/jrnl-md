@@ -29,19 +29,9 @@ func NewStore(root, dateFmt, timeFmt, tagSyms string) *Store {
 	}
 }
 
-// dayPath returns the file path for a given date.
-func (s *Store) dayPath(date time.Time) string {
+// DayPath returns the file path for a given date.
+func (s *Store) DayPath(date time.Time) string {
 	return filepath.Join(s.root,
-		date.Format("2006"),
-		date.Format("01"),
-		date.Format("02")+".md",
-	)
-}
-
-// DayPath returns the file path for a day file given a journal root and date.
-// This is exported so the edit command can pass the path to the editor.
-func DayPath(root string, date time.Time) string {
-	return filepath.Join(root,
 		date.Format("2006"),
 		date.Format("01"),
 		date.Format("02")+".md",
@@ -51,7 +41,7 @@ func DayPath(root string, date time.Time) string {
 // Load reads and parses the day file for date.
 // Returns os.ErrNotExist if the file does not exist.
 func (s *Store) Load(date time.Time) (Day, error) {
-	path := s.dayPath(date)
+	path := s.DayPath(date)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Day{}, err
@@ -62,7 +52,7 @@ func (s *Store) Load(date time.Time) (Day, error) {
 // Save writes day to its day file using atomic write.
 // Creates parent directories as needed.
 func (s *Store) Save(day Day) error {
-	path := s.dayPath(day.Date)
+	path := s.DayPath(day.Date)
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("creating directory: %w", err)
 	}
@@ -73,7 +63,7 @@ func (s *Store) Save(day Day) error {
 // Delete removes the day file for date. Returns an error if the file
 // does not exist. Removes parent directories if they become empty.
 func (s *Store) Delete(date time.Time) error {
-	path := s.dayPath(date)
+	path := s.DayPath(date)
 	if err := os.Remove(path); err != nil {
 		return err
 	}
@@ -84,7 +74,6 @@ func (s *Store) Delete(date time.Time) error {
 	return nil
 }
 
-// removeIfEmpty removes dir if it contains no entries.
 func removeIfEmpty(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) > 0 {
@@ -108,15 +97,16 @@ func (s *Store) Append(body string) error {
 
 	var sb strings.Builder
 	sb.WriteString(dayBody)
+	hasContent := strings.TrimSpace(dayBody) != ""
 
 	if s.timeFmt != "" {
-		if strings.TrimSpace(dayBody) != "" {
+		if hasContent {
 			sb.WriteString("\n")
 		}
 		sb.WriteString("## ")
 		sb.WriteString(now.Format(s.timeFmt))
 		sb.WriteString("\n\n")
-	} else if strings.TrimSpace(dayBody) != "" {
+	} else if hasContent {
 		sb.WriteString("\n")
 	}
 
@@ -231,7 +221,6 @@ func (s *Store) Tags(f Filter) (map[string]int, error) {
 	return counts, nil
 }
 
-// readDirNames returns sorted directory entry names (not paths) under dir.
 func readDirNames(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

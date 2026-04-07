@@ -54,18 +54,13 @@ func runEdit(cmd *cobra.Command, args []string, rf *rootFlags, f *editFlags) err
 
 	s := journal.NewStore(cfg.JournalPath(), cfg.Format.Date, "", cfg.Format.TagSymbols)
 
-	day, err := s.Load(date)
-	if os.IsNotExist(err) {
-		day = journal.Day{Date: date, Body: "\n"}
-		if err := s.Save(day); err != nil {
+	if _, err := s.Load(date); os.IsNotExist(err) {
+		if err := s.Save(journal.Day{Date: date, Body: "\n"}); err != nil {
 			return fmt.Errorf("creating day file: %w", err)
 		}
 	} else if err != nil {
 		return fmt.Errorf("loading day file: %w", err)
 	}
-	_ = day
 
-	path := journal.DayPath(cfg.JournalPath(), date)
-
-	return editor.Open(editorName, path)
+	return editor.Open(editorName, s.DayPath(date))
 }

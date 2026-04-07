@@ -9,17 +9,6 @@ import (
 	"strings"
 )
 
-// Resolve returns the editor to use: configEditor → $VISUAL → $EDITOR.
-func Resolve(configEditor string) string {
-	if configEditor != "" {
-		return configEditor
-	}
-	if v := os.Getenv("VISUAL"); v != "" {
-		return v
-	}
-	return os.Getenv("EDITOR")
-}
-
 // Open launches editorName to edit the file at path, positioning the cursor
 // at the first content line. Blocks until the editor exits.
 func Open(editorName, path string) error {

@@ -6,45 +6,6 @@ import (
 	"testing"
 )
 
-func TestResolveMissingEditor(t *testing.T) {
-	os.Unsetenv("VISUAL")
-	os.Unsetenv("EDITOR")
-	e := Resolve("")
-	_ = e
-}
-
-func TestResolveEditorFromArg(t *testing.T) {
-	os.Unsetenv("VISUAL")
-	os.Unsetenv("EDITOR")
-	e := Resolve("micro")
-	if e != "micro" {
-		t.Errorf("Resolve: got %q, want micro", e)
-	}
-}
-
-func TestResolveEditorVisual(t *testing.T) {
-	os.Setenv("VISUAL", "vim")
-	os.Setenv("EDITOR", "nano")
-	defer os.Unsetenv("VISUAL")
-	defer os.Unsetenv("EDITOR")
-
-	e := Resolve("")
-	if e != "vim" {
-		t.Errorf("Resolve with VISUAL=vim: got %q, want vim", e)
-	}
-}
-
-func TestResolveEditorFallsBackToEditor(t *testing.T) {
-	os.Unsetenv("VISUAL")
-	os.Setenv("EDITOR", "nano")
-	defer os.Unsetenv("EDITOR")
-
-	e := Resolve("")
-	if e != "nano" {
-		t.Errorf("Resolve with EDITOR=nano, no VISUAL: got %q, want nano", e)
-	}
-}
-
 func TestBuildArgs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.md")
 	if err := os.WriteFile(path, []byte("# Test\n\nContent.\n"), 0644); err != nil {

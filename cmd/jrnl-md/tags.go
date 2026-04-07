@@ -5,23 +5,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/glw907/jrnl-md/internal/dateparse"
 	"github.com/glw907/jrnl-md/internal/journal"
 	"github.com/spf13/cobra"
 )
 
-type tagsFlags struct {
-	from           string
-	to             string
-	on             string
-	year           int
-	month          int
-	day            int
-	todayInHistory bool
-}
-
 func newTagsCmd(rf *rootFlags) *cobra.Command {
-	var f tagsFlags
+	var f dateFlags
 
 	cmd := &cobra.Command{
 		Use:          "tags",
@@ -32,25 +21,19 @@ func newTagsCmd(rf *rootFlags) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&f.from, "from", "", "days from date")
-	cmd.Flags().StringVar(&f.to, "to", "", "days up to date")
-	cmd.Flags().StringVar(&f.on, "on", "", "single day")
-	cmd.Flags().IntVar(&f.year, "year", 0, "all days in a year")
-	cmd.Flags().IntVar(&f.month, "month", 0, "all days in a month")
-	cmd.Flags().IntVar(&f.day, "day", 0, "all entries on a day-of-month")
-	cmd.Flags().BoolVar(&f.todayInHistory, "today-in-history", false, "today's date in prior years")
+	registerDateFlags(cmd, &f)
 
 	return cmd
 }
 
-func runTags(cmd *cobra.Command, args []string, rf *rootFlags, f *tagsFlags) error {
+func runTags(cmd *cobra.Command, args []string, rf *rootFlags, f *dateFlags) error {
 	cfg, err := loadConfig(rf)
 	if err != nil {
 		return err
 	}
 
 	now := time.Now()
-	flt, err := buildTagsFilter(f, now)
+	flt, err := parseDateFilter(f, now)
 	if err != nil {
 		return err
 	}
@@ -80,36 +63,4 @@ func runTags(cmd *cobra.Command, args []string, rf *rootFlags, f *tagsFlags) err
 		fmt.Printf("%s: %d\n", tc.tag, tc.count)
 	}
 	return nil
-}
-
-func buildTagsFilter(f *tagsFlags, now time.Time) (journal.Filter, error) {
-	var flt journal.Filter
-	flt.Year = f.year
-	flt.Month = f.month
-	flt.DayOfMonth = f.day
-	flt.TodayInHistory = f.todayInHistory
-
-	if f.from != "" {
-		t, err := dateparse.Parse(f.from, now)
-		if err != nil {
-			return journal.Filter{}, fmt.Errorf("parsing --from: %w", err)
-		}
-		flt.Start = &t
-	}
-	if f.to != "" {
-		t, err := dateparse.Parse(f.to, now)
-		if err != nil {
-			return journal.Filter{}, fmt.Errorf("parsing --to: %w", err)
-		}
-		flt.End = &t
-	}
-	if f.on != "" {
-		t, err := dateparse.Parse(f.on, now)
-		if err != nil {
-			return journal.Filter{}, fmt.Errorf("parsing --on: %w", err)
-		}
-		flt.Start = &t
-		flt.End = &t
-	}
-	return flt, nil
 }
