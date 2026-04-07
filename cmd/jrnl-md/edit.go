@@ -1,0 +1,71 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/glw907/jrnl-md/internal/dateparse"
+	"github.com/glw907/jrnl-md/internal/editor"
+	"github.com/glw907/jrnl-md/internal/journal"
+	"github.com/spf13/cobra"
+)
+
+type editFlags struct {
+	on string
+}
+
+func newEditCmd(rf *rootFlags) *cobra.Command {
+	var f editFlags
+
+	cmd := &cobra.Command{
+		Use:          "edit",
+		Short:        "Open a day file in the configured editor",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runEdit(cmd, args, rf, &f)
+		},
+	}
+
+	cmd.Flags().StringVar(&f.on, "on", "", "edit a specific date (default: today)")
+	return cmd
+}
+
+func runEdit(cmd *cobra.Command, args []string, rf *rootFlags, f *editFlags) error {
+	cfg, err := loadConfig(rf)
+	if err != nil {
+		return err
+	}
+
+	editorName := cfg.Editor()
+	if editorName == "" {
+		return fmt.Errorf("no editor configured: set editor in config or $VISUAL/$EDITOR")
+	}
+
+	now := time.Now()
+	date := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	if f.on != "" {
+		parsed, err := dateparse.Parse(f.on, now)
+		if err != nil {
+			return fmt.Errorf("parsing --on date: %w", err)
+		}
+		date = parsed
+	}
+
+	s := journal.NewStore(cfg.JournalPath(), cfg.Format.Date, "", cfg.Format.TagSymbols)
+
+	day, err := s.Load(date)
+	if os.IsNotExist(err) {
+		day = journal.Day{Date: date, Body: "\n"}
+		if err := s.Save(day); err != nil {
+			return fmt.Errorf("creating day file: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("loading day file: %w", err)
+	}
+	_ = day
+
+	path := journal.DayPath(cfg.JournalPath(), date)
+
+	return editor.Open(editorName, path)
+}
