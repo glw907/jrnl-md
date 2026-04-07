@@ -129,7 +129,10 @@ jrnl-md edit [--on <date>]
 Open a day file in your editor. Defaults to today. `--on` selects a specific
 date. If the day file doesn't exist, it is created with a day heading (and a
 timestamp heading for today, if timestamps are enabled) before the editor opens.
-The cursor is positioned at the end of the file, ready for a new paragraph.
+Re-opening today's file adds a new timestamp heading. If the previous timestamp
+heading has no content (you opened and closed without writing), it is removed
+first. The cursor is positioned at the end of the file, ready for a new
+paragraph.
 
 ```sh
 jrnl-md edit

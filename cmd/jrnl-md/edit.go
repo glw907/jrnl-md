@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/glw907/jrnl-md/internal/dateparse"
@@ -25,8 +26,10 @@ func newEditCmd(rf *rootFlags) *cobra.Command {
 
 Defaults to today. --on selects a specific date. If the day file does not
 exist, it is created with a day heading (and a timestamp heading for today,
-if timestamps are enabled) before the editor opens. The cursor is positioned
-at the end of the file, ready for a new paragraph.
+if timestamps are enabled) before the editor opens. Re-opening today's file
+adds a new timestamp heading. If the previous timestamp heading has no content,
+it is removed first. The cursor is positioned at the end of the file, ready
+for a new paragraph.
 
 The editor is resolved from the config file, then $VISUAL, then $EDITOR.`,
 		Example: `  jrnl-md edit
@@ -40,6 +43,19 @@ The editor is resolved from the config file, then $VISUAL, then $EDITOR.`,
 
 	cmd.Flags().StringVar(&f.on, "on", "", "edit a specific date (default: today)")
 	return cmd
+}
+
+// stripEmptyTimestamp removes a trailing ## heading with no content after it.
+func stripEmptyTimestamp(body string) string {
+	trimmed := strings.TrimRight(body, "\n")
+	i := strings.LastIndex(trimmed, "\n")
+	if i == -1 {
+		return body
+	}
+	if strings.HasPrefix(trimmed[i+1:], "## ") {
+		return strings.TrimRight(trimmed[:i], "\n") + "\n"
+	}
+	return body
 }
 
 func runEdit(cmd *cobra.Command, args []string, rf *rootFlags, f *editFlags) error {
@@ -66,16 +82,33 @@ func runEdit(cmd *cobra.Command, args []string, rf *rootFlags, f *editFlags) err
 
 	s := journal.NewStore(cfg.JournalPath(), cfg.Format.Date, "", cfg.Format.TagSymbols)
 
-	if _, err := s.Load(date); os.IsNotExist(err) {
+	tsHeading := ""
+	if cfg.General.Timestamps && date.Equal(today) {
+		tsHeading = "## " + now.Format(cfg.Format.Time)
+	}
+
+	existing, err := s.Load(date)
+	if os.IsNotExist(err) {
 		body := "\n"
-		if cfg.General.Timestamps && date.Equal(today) {
-			body = "\n## " + now.Format(cfg.Format.Time) + "\n"
+		if tsHeading != "" {
+			body = "\n" + tsHeading + "\n"
 		}
 		if err := s.Save(journal.Day{Date: date, Body: body}); err != nil {
 			return fmt.Errorf("creating day file: %w", err)
 		}
 	} else if err != nil {
 		return fmt.Errorf("loading day file: %w", err)
+	} else {
+		body := stripEmptyTimestamp(existing.Body)
+		if tsHeading != "" {
+			body = strings.TrimRight(body, "\n") + "\n\n" + tsHeading + "\n"
+		}
+		if body != existing.Body {
+			existing.Body = body
+			if err := s.Save(existing); err != nil {
+				return fmt.Errorf("updating day file: %w", err)
+			}
+		}
 	}
 
 	return editor.Open(editorName, s.DayPath(date))

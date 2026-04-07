@@ -143,6 +143,66 @@ func TestEditExistingFilePreservesContent(t *testing.T) {
 	}
 }
 
+func TestEditExistingTodayAddsTimestamp(t *testing.T) {
+	env := newTestEnv(t)
+	cfg := editConfig(env.journalDir, true)
+	if err := os.WriteFile(env.configPath, []byte(cfg), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	today := time.Now()
+	date := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	env.writeDayFile(t, date, "# "+date.Format("2006-01-02")+" Monday\n\n## 09:00 AM\n\nMorning entry.\n")
+
+	if _, err := env.run(t, "edit"); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+
+	content := env.readDayFile(t, date)
+	if !strings.Contains(content, "Morning entry.") {
+		t.Errorf("edit should preserve existing content:\n%s", content)
+	}
+	// Should have original timestamp plus a new one
+	count := strings.Count(content, "## ")
+	if count < 2 {
+		t.Errorf("edit today should add new timestamp heading, found %d timestamp(s):\n%s", count, content)
+	}
+	// No triple blank lines (spacing bug)
+	if strings.Contains(content, "\n\n\n\n") {
+		t.Errorf("edit should not produce excess blank lines:\n%q", content)
+	}
+}
+
+func TestEditStripsEmptyTimestamp(t *testing.T) {
+	env := newTestEnv(t)
+	cfg := editConfig(env.journalDir, true)
+	if err := os.WriteFile(env.configPath, []byte(cfg), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	today := time.Now()
+	date := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	// Simulate: opened earlier, got a timestamp, closed without writing
+	env.writeDayFile(t, date, "# "+date.Format("2006-01-02")+" Monday\n\n## 09:00 AM\n\nMorning entry.\n\n## 10:55 PM\n")
+
+	if _, err := env.run(t, "edit"); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+
+	content := env.readDayFile(t, date)
+	if !strings.Contains(content, "Morning entry.") {
+		t.Errorf("edit should preserve existing content:\n%s", content)
+	}
+	if strings.Contains(content, "10:55 PM") {
+		t.Errorf("edit should strip empty timestamp heading:\n%s", content)
+	}
+	// Should still have the original timestamp plus a new one for now
+	count := strings.Count(content, "## ")
+	if count < 2 {
+		t.Errorf("edit should add new timestamp after stripping empty one, found %d:\n%s", count, content)
+	}
+}
+
 // TestEditCursorPosition verifies the invariant for every edit scenario:
 // after edit prepares the file, the cursor lands on a blank line with a
 // blank paragraph separator above it.
