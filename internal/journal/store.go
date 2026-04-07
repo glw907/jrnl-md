@@ -1,0 +1,282 @@
+package journal
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Store manages day files under a root directory.
+// Files are stored at root/YYYY/MM/DD.md.
+type Store struct {
+	root    string
+	dateFmt string
+	timeFmt string // empty string means timestamps disabled
+	tagSyms string
+}
+
+// NewStore creates a Store backed by root.
+func NewStore(root, dateFmt, timeFmt, tagSyms string) *Store {
+	return &Store{
+		root:    root,
+		dateFmt: dateFmt,
+		timeFmt: timeFmt,
+		tagSyms: tagSyms,
+	}
+}
+
+// dayPath returns the file path for a given date.
+func (s *Store) dayPath(date time.Time) string {
+	return filepath.Join(s.root,
+		date.Format("2006"),
+		date.Format("01"),
+		date.Format("02")+".md",
+	)
+}
+
+// DayPath returns the file path for a day file given a journal root and date.
+// This is exported so the edit command can pass the path to the editor.
+func DayPath(root string, date time.Time) string {
+	return filepath.Join(root,
+		date.Format("2006"),
+		date.Format("01"),
+		date.Format("02")+".md",
+	)
+}
+
+// Load reads and parses the day file for date.
+// Returns os.ErrNotExist if the file does not exist.
+func (s *Store) Load(date time.Time) (Day, error) {
+	path := s.dayPath(date)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Day{}, err
+	}
+	return parseDay(date, string(data))
+}
+
+// Save writes day to its day file using atomic write.
+// Creates parent directories as needed.
+func (s *Store) Save(day Day) error {
+	path := s.dayPath(day.Date)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating directory: %w", err)
+	}
+	content := formatDay(day)
+	return atomicWrite(path, []byte(content), 0644)
+}
+
+// Delete removes the day file for date. Returns an error if the file
+// does not exist. Removes parent directories if they become empty.
+func (s *Store) Delete(date time.Time) error {
+	path := s.dayPath(date)
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	monthDir := filepath.Dir(path)
+	yearDir := filepath.Dir(monthDir)
+	removeIfEmpty(monthDir)
+	removeIfEmpty(yearDir)
+	return nil
+}
+
+// removeIfEmpty removes dir if it contains no entries.
+func removeIfEmpty(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) > 0 {
+		return
+	}
+	os.Remove(dir)
+}
+
+// Append appends body to today's day file. Creates the file with a
+// day heading if it doesn't exist. Adds a timestamp heading if
+// timeFmt is non-empty.
+func (s *Store) Append(body string) error {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	var dayBody string
+	existing, err := s.Load(today)
+	if err == nil {
+		dayBody = existing.Body
+	}
+
+	var sb strings.Builder
+	sb.WriteString(dayBody)
+
+	if s.timeFmt != "" {
+		if strings.TrimSpace(dayBody) != "" {
+			sb.WriteString("\n")
+		}
+		sb.WriteString("## ")
+		sb.WriteString(now.Format(s.timeFmt))
+		sb.WriteString("\n\n")
+	} else if strings.TrimSpace(dayBody) != "" {
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString(body)
+	if !strings.HasSuffix(body, "\n") {
+		sb.WriteString("\n")
+	}
+
+	day := Day{Date: today, Body: sb.String()}
+	return s.Save(day)
+}
+
+// List returns all days matching f, sorted newest-first.
+// Uses directory structure to skip irrelevant years/months.
+func (s *Store) List(f Filter) ([]Day, error) {
+	var days []Day
+
+	years, err := readDirNames(s.root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("listing journal root: %w", err)
+	}
+
+	for _, yearStr := range years {
+		y, err := strconv.Atoi(yearStr)
+		if err != nil {
+			continue
+		}
+		if f.Year != 0 && y != f.Year {
+			continue
+		}
+		if f.Start != nil && y < f.Start.Year() {
+			continue
+		}
+		if f.End != nil && y > f.End.Year() {
+			continue
+		}
+
+		yearDir := filepath.Join(s.root, yearStr)
+		months, err := readDirNames(yearDir)
+		if err != nil {
+			continue
+		}
+
+		for _, monthStr := range months {
+			m, err := strconv.Atoi(monthStr)
+			if err != nil {
+				continue
+			}
+			if f.Month != 0 && m != f.Month {
+				continue
+			}
+
+			monthDir := filepath.Join(yearDir, monthStr)
+			entries, err := os.ReadDir(monthDir)
+			if err != nil {
+				continue
+			}
+
+			for _, entry := range entries {
+				name := entry.Name()
+				if !strings.HasSuffix(name, ".md") {
+					continue
+				}
+				dayStr := strings.TrimSuffix(name, ".md")
+				d, err := strconv.Atoi(dayStr)
+				if err != nil {
+					continue
+				}
+				date := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
+				day, err := s.Load(date)
+				if err != nil {
+					continue
+				}
+				if f.Match(day, s.tagSyms) {
+					days = append(days, day)
+				}
+			}
+		}
+	}
+
+	sort.Slice(days, func(i, j int) bool {
+		return days[i].Date.After(days[j].Date)
+	})
+
+	if f.N > 0 && len(days) > f.N {
+		days = days[:f.N]
+	}
+
+	return days, nil
+}
+
+// Tags returns tag frequencies across all days matching f.
+func (s *Store) Tags(f Filter) (map[string]int, error) {
+	days, err := s.List(f)
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int)
+	for _, day := range days {
+		tags := extractTags(day.Body, s.tagSyms)
+		seen := make(map[string]bool)
+		for _, tag := range tags {
+			if !seen[tag] {
+				counts[tag]++
+				seen[tag] = true
+			}
+		}
+	}
+	return counts, nil
+}
+
+// readDirNames returns sorted directory entry names (not paths) under dir.
+func readDirNames(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// atomicWrite writes data to path using temp-file + sync + rename.
+func atomicWrite(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".jrnl-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("syncing temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("closing temp file: %w", err)
+	}
+	if err := os.Chmod(tmpName, perm); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("chmod temp file: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("renaming temp file: %w", err)
+	}
+	return nil
+}
