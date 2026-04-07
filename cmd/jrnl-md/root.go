@@ -18,8 +18,15 @@ func newRootCmd() *cobra.Command {
 	var f rootFlags
 
 	cmd := &cobra.Command{
-		Use:          "jrnl-md",
-		Short:        "A markdown journaling CLI",
+		Use:   "jrnl-md",
+		Short: "A focused CLI for a markdown day-file journal",
+		Long: `jrnl-md keeps a journal as plain markdown files — one file per calendar day.
+
+Write entries, list and filter by date or tag, and edit day files directly
+in your editor. Your journal is a directory of readable .md files.
+
+Configuration: ~/.config/jrnl-md/config.toml (auto-created on first run)
+Day files:     JOURNAL_PATH/YYYY/MM/DD.md`,
 		SilenceUsage: true,
 	}
 

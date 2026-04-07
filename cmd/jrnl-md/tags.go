@@ -13,8 +13,15 @@ func newTagsCmd(rf *rootFlags) *cobra.Command {
 	var f dateFlags
 
 	cmd := &cobra.Command{
-		Use:          "tags",
-		Short:        "List all tags with frequency counts",
+		Use:   "tags [date-filter-flags]",
+		Short: "List all tags with frequency counts",
+		Long: `List all tags with frequency counts, sorted descending.
+
+Accepts the same date filter flags as list: --from, --to, --on, --year,
+--month, --day, --today-in-history.`,
+		Example: `  jrnl-md tags
+  jrnl-md tags --year 2025
+  jrnl-md tags --from "last month"`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTags(cmd, args, rf, &f)

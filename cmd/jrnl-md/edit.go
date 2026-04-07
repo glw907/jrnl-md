@@ -19,8 +19,17 @@ func newEditCmd(rf *rootFlags) *cobra.Command {
 	var f editFlags
 
 	cmd := &cobra.Command{
-		Use:          "edit",
-		Short:        "Open a day file in the configured editor",
+		Use:   "edit [--on <date>]",
+		Short: "Open a day file in your editor",
+		Long: `Open a day file in your editor.
+
+Defaults to today. --on selects a specific date. If the day file does not
+exist, it is created with a day heading before the editor opens.
+
+The editor is resolved from the config file, then $VISUAL, then $EDITOR.`,
+		Example: `  jrnl-md edit
+  jrnl-md edit --on yesterday
+  jrnl-md edit --on 2026-01-15`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEdit(cmd, args, rf, &f)

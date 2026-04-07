@@ -23,8 +23,27 @@ func newListCmd(rf *rootFlags) *cobra.Command {
 	var f listFlags
 
 	cmd := &cobra.Command{
-		Use:          "list [@tag...]",
-		Short:        "List journal days matching filters",
+		Use:   "list [flags] [@tag...]",
+		Short: "Display day files matching filters",
+		Long: `Display day files matching the given filters.
+
+Defaults to the last default_list_count days (10 by default). Positional
+@tag arguments filter to days containing those tags. Date arguments accept
+natural language (yesterday, last monday, 3 days ago) as well as YYYY-MM-DD.
+
+Body text is wrapped at the configured linewrap width. Tags are highlighted
+in color when a color is configured.`,
+		Example: `  jrnl-md list                          # last 10 days
+  jrnl-md list -5                        # last 5 days
+  jrnl-md list --all                     # all days
+  jrnl-md list --short                   # one line per day
+  jrnl-md list @work                     # days tagged @work
+  jrnl-md list @work @sarah --and        # days tagged both
+  jrnl-md list --from "last monday"
+  jrnl-md list --on 2026-04-01
+  jrnl-md list --year 2025
+  jrnl-md list --today-in-history
+  jrnl-md list --contains "budget question"`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(cmd, args, rf, &f)

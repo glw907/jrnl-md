@@ -36,7 +36,7 @@ No bare-invocation magic. No subcommand = help.
 |------|--------|-------|
 | Pass 1: Infrastructure | Done | Archive 1.x, clear main, CLAUDE.md, go.mod, plans |
 | Pass 2: Core Build | Done | All packages, CLI, unit tests, e2e tests |
-| Pass 3: Docs + Polish | Pending | README.md, docs/config.md, --help text |
+| Pass 3: Docs + Polish | Done | README.md, docs/config.md, --help text |
 
 ## Key Design Decisions
 
