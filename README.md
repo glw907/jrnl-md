@@ -231,3 +231,7 @@ the way.
 
 Unix does the rest. jrnl-md does not include export, encryption, templates, or
 web viewers. Those are solved problems. Use the tools that already exist.
+
+## License
+
+[GPL-3.0](LICENSE)
