@@ -1,6 +1,6 @@
 BINARY := jrnl-md
 MODULE := github.com/glw907/jrnl-md
-VERSION := 0.1.0
+VERSION := 2.0.0
 
 .PHONY: build test vet lint install check clean
 

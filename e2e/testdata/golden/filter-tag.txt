@@ -1,2 +1,0 @@
-2026-03-01 09:00 | First @work entry with a longer body that can test linewrap behavior when the configuration sets a narrow column width.
-2026-03-10 08:00 | Morning @work standup notes covering the sprint review.
