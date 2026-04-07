@@ -3,8 +3,8 @@
 A focused CLI for keeping a journal as plain markdown files. One file per day.
 Inspired by [jrnl](https://jrnl.sh), built for people who want their notes to
 be readable text files first and foremost — no lock-in, no special format, just
-a directory of `YYYY/MM/DD.md` files you can grep, edit, sync, and read in any
-markdown viewer.
+a directory of `YYYY/MM/YYYY-MM-DD.md` files you can grep, edit, sync, and read
+in any markdown viewer.
 
 ## Installation
 
@@ -22,8 +22,9 @@ Requires Go 1.21+. The binary is self-contained with no runtime dependencies.
 jrnl-md write Went for a run this morning. Feeling good.
 ```
 
-Appends to today's day file (`~/Documents/Journal/2026/04/06.md`). Creates the
-file with a day heading if it doesn't exist. Adds a timestamp heading by default.
+Appends to today's day file (`~/Documents/Journal/2026/04/2026-04-06.md`).
+Creates the file with a day heading if it doesn't exist. Adds a timestamp
+heading by default.
 
 **List recent entries:**
 
@@ -126,8 +127,9 @@ jrnl-md edit [--on <date>]
 ```
 
 Open a day file in your editor. Defaults to today. `--on` selects a specific
-date. If the day file doesn't exist, it is created with a day heading before
-the editor opens.
+date. If the day file doesn't exist, it is created with a day heading (and a
+timestamp heading for today, if timestamps are enabled) before the editor opens.
+The cursor is positioned at the end of the file, ready for a new paragraph.
 
 ```sh
 jrnl-md edit
@@ -186,7 +188,7 @@ See [docs/config.md](docs/config.md) for the full configuration reference.
 
 ## Day File Format
 
-Files are stored at `JOURNAL_PATH/YYYY/MM/DD.md`.
+Files are stored at `JOURNAL_PATH/YYYY/MM/YYYY-MM-DD.md`.
 
 With timestamps enabled (default):
 

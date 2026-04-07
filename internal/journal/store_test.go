@@ -60,7 +60,7 @@ func TestStoreSaveCreatesDirectories(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	path := filepath.Join(root, "2026", "04", "06.md")
+	path := filepath.Join(root, "2026", "04", "2026-04-06.md")
 	if _, err := os.Stat(path); err != nil {
 		t.Errorf("expected file at %s: %v", path, err)
 	}

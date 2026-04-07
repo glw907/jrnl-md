@@ -8,10 +8,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/glw907/jrnl-md/internal/fsutil"
 )
 
 // Store manages day files under a root directory.
-// Files are stored at root/YYYY/MM/DD.md.
 type Store struct {
 	root    string
 	dateFmt string
@@ -34,7 +35,7 @@ func (s *Store) DayPath(date time.Time) string {
 	return filepath.Join(s.root,
 		date.Format("2006"),
 		date.Format("01"),
-		date.Format("02")+".md",
+		date.Format("2006-01-02")+".md",
 	)
 }
 
@@ -57,7 +58,7 @@ func (s *Store) Save(day Day) error {
 		return fmt.Errorf("creating directory: %w", err)
 	}
 	content := formatDay(day)
-	return atomicWrite(path, []byte(content), 0644)
+	return fsutil.AtomicWrite(path, []byte(content), 0644)
 }
 
 // Delete removes the day file for date. Returns an error if the file
@@ -100,9 +101,7 @@ func (s *Store) Append(body string) error {
 	hasContent := strings.TrimSpace(dayBody) != ""
 
 	if s.timeFmt != "" {
-		if hasContent {
-			sb.WriteString("\n")
-		}
+		sb.WriteString("\n")
 		sb.WriteString("## ")
 		sb.WriteString(now.Format(s.timeFmt))
 		sb.WriteString("\n\n")
@@ -173,12 +172,11 @@ func (s *Store) List(f Filter) ([]Day, error) {
 				if !strings.HasSuffix(name, ".md") {
 					continue
 				}
-				dayStr := strings.TrimSuffix(name, ".md")
-				d, err := strconv.Atoi(dayStr)
+				base := strings.TrimSuffix(name, ".md")
+				date, err := time.Parse("2006-01-02", base)
 				if err != nil {
 					continue
 				}
-				date := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
 				day, err := s.Load(date)
 				if err != nil {
 					continue
@@ -234,38 +232,4 @@ func readDirNames(dir string) ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
-}
-
-// atomicWrite writes data to path using temp-file + sync + rename.
-func atomicWrite(path string, data []byte, perm os.FileMode) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".jrnl-*.tmp")
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpName := tmp.Name()
-
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("writing temp file: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("syncing temp file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("closing temp file: %w", err)
-	}
-	if err := os.Chmod(tmpName, perm); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("chmod temp file: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("renaming temp file: %w", err)
-	}
-	return nil
 }

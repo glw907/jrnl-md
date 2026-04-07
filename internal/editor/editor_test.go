@@ -1,17 +1,12 @@
 package editor
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestBuildArgs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.md")
-	if err := os.WriteFile(path, []byte("# Test\n\nContent.\n"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
 	args := buildArgs("nvim", path, 3)
 	if len(args) == 0 {
 		t.Fatal("buildArgs: returned empty args")
@@ -41,6 +36,17 @@ func TestBuildArgsVim(t *testing.T) {
 	}
 }
 
+func TestBuildArgsNvimWrapper(t *testing.T) {
+	path := "/tmp/test.md"
+	args := buildArgs("nvim-journal", path, 5)
+	if len(args) < 3 {
+		t.Fatalf("buildArgs nvim-journal: expected at least 3 args, got %d: %v", len(args), args)
+	}
+	if args[1] != "+5" {
+		t.Errorf("buildArgs nvim-journal: expected +5, got %q", args[1])
+	}
+}
+
 func TestBuildArgsMicro(t *testing.T) {
 	path := "/tmp/test.md"
 	args := buildArgs("micro", path, 5)
@@ -52,19 +58,49 @@ func TestBuildArgsMicro(t *testing.T) {
 	}
 }
 
-func TestCursorLine(t *testing.T) {
+func TestEnsureEntryPoint(t *testing.T) {
 	cases := []struct {
-		content  string
-		wantLine int
+		name string
+		in   string
+		want string
 	}{
-		{"# 2026-04-06 Monday\n\nContent.\n", 3},
-		{"# 2026-04-06 Monday\n\n## 09:00 AM\n\nContent.\n", 3},
-		{"# 2026-04-06 Monday\n", 2},
+		{
+			name: "content ending with single newline",
+			in:   "# 2026-04-06 Monday\n\nContent.\n",
+			want: "# 2026-04-06 Monday\n\nContent.\n\n\n",
+		},
+		{
+			name: "content already correct",
+			in:   "# 2026-04-06 Monday\n\nContent.\n\n\n",
+			want: "# 2026-04-06 Monday\n\nContent.\n\n\n",
+		},
+		{
+			name: "excess trailing newlines",
+			in:   "# 2026-04-06 Monday\n\nContent.\n\n\n\n",
+			want: "# 2026-04-06 Monday\n\nContent.\n\n\n",
+		},
+		{
+			name: "new file without timestamp",
+			in:   "# 2026-04-06 Monday\n",
+			want: "# 2026-04-06 Monday\n\n\n",
+		},
+		{
+			name: "new file with timestamp",
+			in:   "# 2026-04-06 Monday\n\n## 09:00 AM\n",
+			want: "# 2026-04-06 Monday\n\n## 09:00 AM\n\n\n",
+		},
+		{
+			name: "no trailing newline",
+			in:   "# 2026-04-06 Monday",
+			want: "# 2026-04-06 Monday\n\n\n",
+		},
 	}
 	for _, tt := range cases {
-		got := cursorLine(tt.content)
-		if got != tt.wantLine {
-			t.Errorf("cursorLine(%q): got %d, want %d", tt.content, got, tt.wantLine)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got := ensureEntryPoint(tt.in)
+			if got != tt.want {
+				t.Errorf("ensureEntryPoint:\n got %q\nwant %q", got, tt.want)
+			}
+		})
 	}
 }

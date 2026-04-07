@@ -8,7 +8,7 @@ everything else.
 
 ## Design Principle: The Day Is the Atom
 
-One markdown file per calendar day (`YYYY/MM/DD.md`). All operations work at the day level.
+One markdown file per calendar day (`YYYY/MM/YYYY-MM-DD.md`). All operations work at the day level.
 There is no per-entry structure within a day file.
 
 - Load only the day files an operation needs. Never load the entire journal for a

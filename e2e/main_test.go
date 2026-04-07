@@ -84,11 +84,10 @@ func (e testEnv) run(t *testing.T, args ...string) (string, error) {
 
 func (e testEnv) writeDayFile(t *testing.T, date time.Time, content string) {
 	t.Helper()
-	dir := filepath.Join(e.journalDir, date.Format("2006"), date.Format("01"))
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	path := e.dayFilePath(date)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	path := filepath.Join(dir, date.Format("02")+".md")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -96,7 +95,7 @@ func (e testEnv) writeDayFile(t *testing.T, date time.Time, content string) {
 
 func (e testEnv) dayFilePath(date time.Time) string {
 	return filepath.Join(e.journalDir,
-		date.Format("2006"), date.Format("01"), date.Format("02")+".md")
+		date.Format("2006"), date.Format("01"), date.Format("2006-01-02")+".md")
 }
 
 func (e testEnv) readDayFile(t *testing.T, date time.Time) string {

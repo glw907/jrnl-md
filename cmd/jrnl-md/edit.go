@@ -24,7 +24,9 @@ func newEditCmd(rf *rootFlags) *cobra.Command {
 		Long: `Open a day file in your editor.
 
 Defaults to today. --on selects a specific date. If the day file does not
-exist, it is created with a day heading before the editor opens.
+exist, it is created with a day heading (and a timestamp heading for today,
+if timestamps are enabled) before the editor opens. The cursor is positioned
+at the end of the file, ready for a new paragraph.
 
 The editor is resolved from the config file, then $VISUAL, then $EDITOR.`,
 		Example: `  jrnl-md edit
@@ -52,7 +54,8 @@ func runEdit(cmd *cobra.Command, args []string, rf *rootFlags, f *editFlags) err
 	}
 
 	now := time.Now()
-	date := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	date := today
 	if f.on != "" {
 		parsed, err := dateparse.Parse(f.on, now)
 		if err != nil {
@@ -64,7 +67,11 @@ func runEdit(cmd *cobra.Command, args []string, rf *rootFlags, f *editFlags) err
 	s := journal.NewStore(cfg.JournalPath(), cfg.Format.Date, "", cfg.Format.TagSymbols)
 
 	if _, err := s.Load(date); os.IsNotExist(err) {
-		if err := s.Save(journal.Day{Date: date, Body: "\n"}); err != nil {
+		body := "\n"
+		if cfg.General.Timestamps && date.Equal(today) {
+			body = "\n## " + now.Format(cfg.Format.Time) + "\n"
+		}
+		if err := s.Save(journal.Day{Date: date, Body: body}); err != nil {
 			return fmt.Errorf("creating day file: %w", err)
 		}
 	} else if err != nil {
